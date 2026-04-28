@@ -21,7 +21,7 @@ from langgraph_orchestrator import run_analysis
 # Bootstrap
 # ---------------------------------------------------------------------------
 
-load_dotenv()  # load ANTHROPIC_API_KEY from .env if present
+load_dotenv()  # load Gemini_API_KEY from .env if present
 
 DATA_PATH = Path(__file__).parent / "data" / "companies.json"
 
@@ -65,7 +65,7 @@ def root():
 
 
 @app.get("/companies", tags=["Companies"])
-def list_companies():
+async def list_companies():
     """
     Return a summary list of all companies.
     Fields: cin, name, city, sector, type
@@ -84,7 +84,7 @@ def list_companies():
 
 
 @app.get("/company/{cin}", tags=["Companies"])
-def get_company(cin: str):
+async def get_company(cin: str):
     """
     Return the full company object for the given CIN.
     """
@@ -114,6 +114,8 @@ async def analyze_company(cin: str):
 
     try:
         result = await run_analysis(cin)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except EnvironmentError as e:
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
@@ -122,11 +124,14 @@ async def analyze_company(cin: str):
             detail=f"Analysis pipeline failed: {str(e)}",
         )
 
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+
     return result
 
 
 @app.get("/search-regulation", tags=["Regulations"])
-def search_regulations(q: str = Query(..., description="Plain-English compliance query")):
+async def search_regulations(q: str = Query(..., description="Plain-English compliance query")):
     """
     Perform a semantic search over the pre-loaded Indian compliance regulation corpus.
 

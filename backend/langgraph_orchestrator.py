@@ -14,7 +14,7 @@ from langgraph.graph import StateGraph, END
 from rule_engine import RuleEngine
 from risk_scorer import RiskScorer
 from chromadb_client import search_regulation
-from claude_client import generate_remediation
+from gemini_client import generate_remediation
 
 # ---------------------------------------------------------------------------
 # State Schema
@@ -105,6 +105,7 @@ def generate_remediation_node(state: ComplianceState) -> ComplianceState:
         company_name=company["name"],
         violations=violations,
         risk_score=risk_result["score"],
+        risk_bucket=risk_result["bucket"],
     )
 
     return {**state, "remediation": remediation_text}

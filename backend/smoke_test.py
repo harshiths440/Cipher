@@ -56,7 +56,30 @@ load_dotenv()
 key = os.environ.get("ANTHROPIC_API_KEY", "")
 print(f"\n[5] ANTHROPIC_API_KEY set: {'YES (' + key[:8] + '...)' if key else 'NO — set in .env!'}")
 
-print("\n" + "=" * 60)
-print("Smoke test complete. Start server with:")
-print("  uvicorn main:app --host 0.0.0.0 --port 8000 --reload")
-print("=" * 60)
+print("""
+==========================================================
+Smoke test complete. Start server with:
+  uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+==========================================================""")
+
+# ── 6. Full pipeline — async run_analysis ─────────────────────
+print("\n[6] Full LangGraph pipeline via run_analysis():")
+import asyncio
+from langgraph_orchestrator import run_analysis
+
+FIRST_CIN = "U72900KA2018PTC123456"  # Technova Solutions Pvt Ltd
+
+result = asyncio.run(run_analysis(FIRST_CIN))
+
+print(f"  CIN          : {FIRST_CIN}")
+print(f"  risk_score   : {result['risk_score']}")
+print(f"  risk_bucket  : {result['risk_bucket']}")
+
+violations = result.get("violations", [])
+if violations:
+    print(f"  first violation rule: {violations[0]['rule']}")
+else:
+    print("  first violation rule: (no violations)")
+
+assert "risk_score" in result, "FAIL: 'risk_score' key missing from pipeline result!"
+print("\n  ✅ Assertion passed: 'risk_score' present in result.")
