@@ -32,7 +32,7 @@ def generate_remediation(
     violation_lines = "\n".join(
         f"- {v['rule']} ({v['severity']}): {v['description']}"
         for v in violations
-    )
+    ) or "- No violations detected."
 
     prompt = (
         f"Company: {company_name}\n"
