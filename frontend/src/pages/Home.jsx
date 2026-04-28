@@ -23,6 +23,7 @@ export default function Home() {
   const [error,       setError]       = useState(null)
   const [isOpen,      setIsOpen]      = useState(false)
   const [activeDoc,   setActiveDoc]   = useState(0)
+  const [hoveredIdx,  setHoveredIdx]  = useState(null)
   const dropdownRef = useRef(null)
   const navigate = useNavigate()
 
@@ -148,34 +149,43 @@ export default function Home() {
             </p>
           </motion.div>
 
-          {/* Horizontal Cards Grid */}
+          {/* Executive Agent Grid */}
           <div className="w-full grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
             {doctors.map((doc, idx) => (
               <motion.div 
                 key={idx}
-                initial={{ opacity: 0, y: 50 }}
+                initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-10%" }}
-                transition={{ duration: 0.5, delay: idx * 0.1, ease: "easeOut" }}
-                className="bg-[#111827]/80 backdrop-blur-md border border-white/5 rounded-3xl p-6 flex flex-col items-center text-center group hover:border-indigo-500/30 hover:bg-[#151D2C] transition-all shadow-xl hover:-translate-y-2 relative overflow-hidden"
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: idx * 0.1, ease: [0.16, 1, 0.3, 1] }}
+                className="group relative bg-[#111827]/60 backdrop-blur-2xl border border-white/5 rounded-[32px] p-8 flex flex-col items-center text-center hover:bg-[#151D2C] hover:border-indigo-500/20 transition-all duration-500 shadow-2xl hover:shadow-indigo-500/5"
               >
-                {/* Premium Icon Container */}
-                <div className="relative shrink-0 mb-6 mt-2">
-                  <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-500 blur-xl opacity-20 group-hover:opacity-40 transition-opacity" />
-                  <div className="relative w-20 h-20 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center backdrop-blur-xl">
-                    <doc.icon className={`w-10 h-10 ${doc.color}`} strokeWidth={1.5} />
+                {/* Visual Accent */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-gradient-to-r from-transparent via-indigo-500/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-full" />
+
+                {/* Professional Icon Container */}
+                <div className="relative mb-8 mt-2">
+                  <div className="absolute inset-0 bg-indigo-500/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                  <div className="relative w-20 h-20 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-center backdrop-blur-xl group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500">
+                    <doc.icon className={`w-10 h-10 ${doc.color}`} strokeWidth={1.2} />
                   </div>
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 flex flex-col items-center">
-                  <h4 className="text-xl font-bold text-white mb-3 group-hover:text-indigo-300 transition-colors">{doc.name}</h4>
-                  <p className="text-sm text-gray-400 leading-relaxed mb-6 flex-grow">{doc.desc}</p>
+                <div className="flex flex-col items-center flex-1">
+                  <h4 className="text-xl font-bold text-white mb-3 tracking-tight font-['Plus_Jakarta_Sans'] group-hover:text-indigo-300 transition-colors">
+                    {doc.name}
+                  </h4>
+                  <p className="text-sm text-gray-400 leading-relaxed opacity-70 mb-8 px-2">
+                    {doc.desc}
+                  </p>
                   
-                  {/* Tags */}
-                  <div className="flex flex-wrap justify-center gap-2 mt-auto">
-                    <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] text-gray-400 border border-white/5">Auto-updates</span>
-                    <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] text-gray-400 border border-white/5">24/7 Monitoring</span>
+                  {/* Status Indicator */}
+                  <div className="mt-auto pt-6 border-t border-white/5 w-full flex items-center justify-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500/40 group-hover:bg-indigo-400 transition-colors" />
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] group-hover:text-gray-300 transition-colors">
+                      Live Monitoring
+                    </span>
                   </div>
                 </div>
               </motion.div>
