@@ -371,13 +371,236 @@ const OverviewTab = ({ data, cin }) => {
   );
 };
 
-// ─── Main Dashboard ───────────────────────────────────────────────────────────
+// ─── Alert Inbox Tab ─────────────────────────────────────────────────────────
 
-const TABS = [
-  { id: 'overview',  label: 'Overview' },
-  { id: 'tax',       label: 'Tax Analysis' },
-  { id: 'ca_audit',  label: 'CA Audit' },
-];
+const AlertInboxTab = ({ alerts, refreshAlerts }) => {
+  const [replyText, setReplyText] = useState({});
+  const [replyModal, setReplyModal] = useState({ open: false, alertId: null });
+
+  const handleAck = async () => {
+    const responseText = replyText[replyModal.alertId] || 'Acknowledged and processing.';
+    try {
+      const res = await fetch(`${API}/alerts/${replyModal.alertId}/acknowledge`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ca_response: responseText })
+      });
+      if (res.ok) {
+        setReplyModal({ open: false, alertId: null });
+        refreshAlerts();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleRead = async (id) => {
+    try {
+      await fetch(`${API}/alerts/${id}/read`, { method: 'PUT' });
+      refreshAlerts();
+    } catch (e) { console.error(e); }
+  };
+
+  if (!alerts.length) return <div className="p-8 text-center text-gray-400 border border-white/5 rounded-xl bg-white/2">No alerts from Executive.</div>;
+
+  return (
+    <div className="space-y-4 pb-16">
+      {alerts.map(a => {
+        const isEmergency = a.urgency === 'EMERGENCY';
+        const isHigh = a.urgency === 'HIGH';
+        const urgencyClass = isEmergency 
+          ? 'bg-red-500 text-white animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]' 
+          : isHigh ? 'bg-orange-500 text-white' : 'bg-yellow-500 text-black';
+        
+        return (
+          <div key={a.id} className={`p-5 rounded-xl border ${a.status === 'UNREAD' ? 'border-red-500/50 bg-red-500/5' : 'border-white/10 bg-[var(--color-brand-card)]'}`}>
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center gap-3">
+                <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${urgencyClass}`}>
+                  {a.urgency}
+                </span>
+                <span className="text-sm text-gray-400">{new Date(a.sent_at).toLocaleString()}</span>
+              </div>
+              <StatusBadge s={a.status} />
+            </div>
+            
+            <p className="text-sm text-gray-400 mb-1">Re: <span className="font-bold text-white">{a.regulation_title}</span></p>
+            <p className="text-gray-300 text-sm mb-6 bg-black/30 p-4 rounded-xl border-l-4 border-indigo-500">{a.message}</p>
+            
+            {a.status !== 'ACKNOWLEDGED' ? (
+              <div className="flex gap-3 mt-4 border-t border-white/10 pt-4">
+                {a.status === 'UNREAD' && (
+                  <button onClick={() => handleRead(a.id)} className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-sm font-medium transition-colors">
+                    Mark as Read
+                  </button>
+                )}
+                <button onClick={() => setReplyModal({ open: true, alertId: a.id })} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors">
+                  Acknowledge + Reply
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4 border-t border-white/10 pt-4">
+                <div className="bg-green-500/10 border border-green-500/20 p-4 rounded-xl">
+                  <p className="text-xs text-green-400 mb-2 font-bold uppercase tracking-wider">Your response ({new Date(a.acknowledged_at).toLocaleString()}):</p>
+                  <p className="text-sm text-gray-200">{a.ca_response}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {replyModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#111827] border border-white/10 rounded-2xl w-full max-w-md p-6">
+            <h3 className="text-xl font-bold mb-4">Reply to Executive</h3>
+            <textarea 
+              className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-indigo-500 min-h-[120px] mb-4"
+              placeholder="E.g. I have reviewed this and will file it by EOD."
+              value={replyText[replyModal.alertId] || ''}
+              onChange={e => setReplyText({...replyText, [replyModal.alertId]: e.target.value})}
+            />
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setReplyModal({ open: false, alertId: null })} className="px-4 py-2 text-gray-400 hover:text-white">Cancel</button>
+              <button onClick={handleAck} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium">Send Reply</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Filing Requests Tab ─────────────────────────────────────────────────────
+
+const FilingRequestsTab = ({ requests, refreshRequests }) => {
+  const [filingModal, setFilingModal] = useState({ open: false, request: null, caName: '', portal: 'GST Portal' });
+
+  const getPortal = (form) => {
+    if (form.includes('GST')) return 'GST Portal';
+    if (form.includes('ITR') || form.includes('15CA')) return 'Income Tax Portal';
+    if (form.includes('MGT') || form.includes('AOC') || form.includes('DIR')) return 'MCA21';
+    return 'Other';
+  };
+
+  const handleProgress = async (id) => {
+    await fetch(`${API}/filing-requests/${id}/progress`, { method: 'PUT' });
+    refreshRequests();
+  };
+
+  const handleConfirmFiled = async () => {
+    const { request, caName, portal } = filingModal;
+    await fetch(`${API}/filing-requests/${request.id}/file`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ca_name: caName || 'CA', form_name: request.form_name, portal })
+    });
+    setFilingModal({ open: false, request: null, caName: '', portal: '' });
+    refreshRequests();
+  };
+
+  const openModal = (r) => {
+    setFilingModal({ open: true, request: r, caName: '', portal: getPortal(r.form_name) });
+  };
+
+  if (!requests.length) return <div className="p-8 text-center text-gray-400 border border-white/5 rounded-xl bg-white/2">No pending filing requests.</div>;
+
+  return (
+    <div className="bg-[#111827] border border-white/10 rounded-2xl overflow-hidden pb-4">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm text-left">
+          <thead className="bg-black/20 text-gray-400 uppercase text-xs">
+            <tr>
+              <th className="px-6 py-4">Form</th>
+              <th className="px-6 py-4">Requested</th>
+              <th className="px-6 py-4">Deadline</th>
+              <th className="px-6 py-4">Status</th>
+              <th className="px-6 py-4 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {requests.map(r => (
+              <tr key={r.id} className="hover:bg-white/5 transition-colors">
+                <td className="px-6 py-4 font-bold text-white">{r.form_name}</td>
+                <td className="px-6 py-4 text-gray-400">{new Date(r.requested_at).toLocaleDateString()}</td>
+                <td className="px-6 py-4">{r.deadline}</td>
+                <td className="px-6 py-4"><StatusBadge s={r.status} /></td>
+                <td className="px-6 py-4 text-right">
+                  {r.status === 'PENDING' && (
+                    <button onClick={() => handleProgress(r.id)} className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded text-xs font-bold uppercase transition-colors">
+                      Start Filing
+                    </button>
+                  )}
+                  {r.status === 'IN_PROGRESS' && (
+                    <button onClick={() => openModal(r)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded text-xs font-bold uppercase transition-colors shadow-lg shadow-indigo-500/20">
+                      Mark as Filed
+                    </button>
+                  )}
+                  {r.status === 'FILED' && (
+                    <div className="flex flex-col items-end">
+                      <span className="font-mono text-green-400 text-xs">{r.ack_number}</span>
+                      <span className="text-gray-500 text-[10px]">{r.ack_portal}</span>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {filingModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#111827] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+            <div className="p-5 border-b border-white/10 bg-white/5">
+              <h3 className="text-lg font-bold flex items-center gap-2">✅ Confirm Filing</h3>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Form</label>
+                <div className="bg-black/30 border border-white/5 rounded-lg px-3 py-2 text-gray-300 text-sm">
+                  {filingModal.request.form_name}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Your Name</label>
+                <input 
+                  type="text" 
+                  className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                  placeholder="e.g. Rahul Sharma"
+                  value={filingModal.caName}
+                  onChange={e => setFilingModal({...filingModal, caName: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Portal</label>
+                <select 
+                  className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                  value={filingModal.portal}
+                  onChange={e => setFilingModal({...filingModal, portal: e.target.value})}
+                >
+                  <option value="GST Portal">GST Portal</option>
+                  <option value="MCA21">MCA21</option>
+                  <option value="Income Tax Portal">Income Tax Portal</option>
+                  <option value="TRACES">TRACES</option>
+                  <option value="SEBI SCORES">SEBI SCORES</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div className="flex gap-3 justify-end mt-6">
+                <button onClick={() => setFilingModal({ open: false, request: null })} className="px-4 py-2 text-sm font-medium text-gray-400 hover:text-white">Cancel</button>
+                <button onClick={handleConfirmFiled} className="px-4 py-2 text-sm font-medium bg-green-600 hover:bg-green-500 text-white rounded-lg">Confirm Filed →</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+// ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 const Dashboard = () => {
   const location = useLocation();
@@ -386,6 +609,22 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(!data);
   const [error, setError]     = useState(null);
   const [activeTab, setTab]   = useState('overview');
+
+  // Polled data
+  const [alerts, setAlerts] = useState([]);
+  const [requests, setRequests] = useState([]);
+
+  const fetchDynamicData = () => {
+    if (!cin) return;
+    fetch(`${API}/alerts/${cin}`).then(r => r.ok && r.json()).then(setAlerts).catch(() => {});
+    fetch(`${API}/filing-requests/${cin}`).then(r => r.ok && r.json()).then(setRequests).catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchDynamicData(); // Initial fetch
+    const interval = setInterval(fetchDynamicData, 5000);
+    return () => clearInterval(interval);
+  }, [cin]);
 
   useEffect(() => {
     if (!data && cin) {
@@ -397,9 +636,7 @@ const Dashboard = () => {
             company_name: 'Example Corp Ltd', cin, city: 'Mumbai', sector: 'Manufacturing',
             risk_score: 78, risk_bucket: 'HIGH',
             top_factors: ['GST Filings Pending (3 months) × 1 (+18 pts)', 'Late Annual Return (MGT-7) × 1 (+15 pts)'],
-            violations: [
-              { rule: 'Failure to file MGT-7', severity: 'HIGH', description: 'Annual return for FY 2023-24 not filed within 60 days of AGM.', penalty_reference: 'Sec 92(4)', penalty_amount_inr: 50000 },
-            ],
+            violations: [{ rule: 'Failure to file MGT-7', severity: 'HIGH', description: 'Annual return for FY 2023-24 not filed.', penalty_reference: 'Sec 92(4)', penalty_amount_inr: 50000 }],
             remediation_steps: '1. File pending GSTR-3B returns.\n2. File MGT-7 with MCA.',
             relevant_regulations: [],
             compliance_summary: { annual_returns_filed: false, overdue_filings: 2, filing_delay_days_avg: 45, violations_last_12m: 2, penalty_paid_inr: 65000, gst_pending_months: 3 },
@@ -412,6 +649,16 @@ const Dashboard = () => {
 
   if (loading) return <LoadingSpinner message="Fetching analysis results…" />;
   if (!data)   return <div className="p-8 text-center text-red-400">Failed to load data.</div>;
+
+  const unreadAlerts = alerts.filter(a => a.status === 'UNREAD').length;
+  
+  const TABS = [
+    { id: 'overview',  label: 'Overview' },
+    { id: 'tax',       label: 'Tax Analysis' },
+    { id: 'ca_audit',  label: 'CA Audit' },
+    { id: 'alerts',    label: `🔴 Alerts ${unreadAlerts > 0 ? `(${unreadAlerts})` : ''}` },
+    { id: 'filings',   label: 'Filing Requests' },
+  ];
 
   return (
     <div className="flex-grow max-w-7xl w-full mx-auto p-6 space-y-6 animate-fade-in">
@@ -447,13 +694,16 @@ const Dashboard = () => {
           <button
             key={tab.id}
             onClick={() => setTab(tab.id)}
-            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+            className={`relative px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
               activeTab === tab.id
                 ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
                 : 'text-gray-400 hover:text-white hover:bg-white/5'
             }`}
           >
             {tab.label}
+            {tab.id === 'alerts' && unreadAlerts > 0 && activeTab !== 'alerts' && (
+              <span className="absolute top-1 right-2 w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse"></span>
+            )}
           </button>
         ))}
       </div>
@@ -462,6 +712,8 @@ const Dashboard = () => {
       {activeTab === 'overview' && <OverviewTab data={data} cin={cin} />}
       {activeTab === 'tax'      && <TaxTab cin={cin} />}
       {activeTab === 'ca_audit' && <CAAuditTab cin={cin} />}
+      {activeTab === 'alerts'   && <AlertInboxTab alerts={alerts} refreshAlerts={fetchDynamicData} />}
+      {activeTab === 'filings'  && <FilingRequestsTab requests={requests} refreshRequests={fetchDynamicData} />}
     </div>
   );
 };

@@ -1,9 +1,9 @@
-import React from 'react';
-import { Routes, Route } from 'react-router-dom';
-import Navbar from './components/Navbar';
-import Home from './pages/Home';
-import Dashboard from './pages/Dashboard';
-import Calendar from './pages/Calendar';
+import React from 'react'
+import { Routes, Route } from 'react-router-dom'
+import Navbar from './components/Navbar'
+import Home from './pages/Home'
+import Dashboard from './pages/Dashboard'
+import Calendar from './pages/Calendar'
 
 function App() {
   return (
@@ -11,13 +11,13 @@ function App() {
       <Navbar />
       <main className="flex-grow flex flex-col">
         <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/dashboard/:cin" element={<Dashboard />} />
-          <Route path="/calendar/:cin" element={<Calendar />} />
+          <Route path="/"                element={<Home />} />
+          <Route path="/dashboard/:cin"  element={<Dashboard />} />
+          <Route path="/calendar/:cin"   element={<Calendar />} />
         </Routes>
       </main>
     </div>
-  );
+  )
 }
 
-export default App;
+export default App

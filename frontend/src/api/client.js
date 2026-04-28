@@ -43,3 +43,13 @@ export const searchRegulation = async (query) => {
     throw error;
   }
 };
+
+export const getExecutiveData = async (cin) => {
+  try {
+    const response = await api.get(`/executive/${cin}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching executive data for ${cin}:`, error);
+    throw error;
+  }
+};
