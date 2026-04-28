@@ -39,18 +39,24 @@ Master Orchestrator (LangGraph State Machine)
 ↓
 ComplianceStatus JSON → React Dashboard
 
+Background Automation (APScheduler — 60s loops):
+  job_deadline_scanner   → auto-alerts + filing requests for overdue companies
+  job_regulation_detector → maps live news → affected sectors → company alerts
+  job_filing_escalator   → PENDING → HIGH alert (24h) → EMERGENCY (48h)
+  activity_log           → GET /activity-log → ActivityFeed UI (5s polling)
+
 News Feed:
 Live scrapers (PIB / SEBI / Income Tax / MCA)
   + 40-item curated synthetic dataset
   → merged, deduped, sorted by date
-  → POST /news/analyze → Gemini 2.0 Flash
+  → POST /news/analyze → Gemini 2.5 Flash
   → Structured breakdown modal (Rule, Impact, Actions, Deadline, Penalty)
 ```
 
 **Tech Stack:**
 
-- **Backend:** Python, FastAPI, LangGraph, ChromaDB, Sentence Transformers
-- **AI:** Google Gemini 2.0 Flash (remediation + news analysis)
+- **Backend:** Python, FastAPI, LangGraph, ChromaDB, Sentence Transformers, APScheduler
+- **AI:** Google Gemini 2.5 Flash (chat, remediation, news analysis)
 - **Vector DB:** ChromaDB with all-MiniLM-L6-v2 embeddings
 - **Frontend:** React, Vite, Tailwind CSS, Framer Motion
 - **Data:** 12-company MCA dataset + 40-item curated regulatory news dataset
@@ -91,17 +97,30 @@ Frontend runs at `http://localhost:5173`
 
 ## 📡 API Endpoints
 
-| Method | Endpoint                  | Description                                                        |
-| ------ | ------------------------- | ------------------------------------------------------------------ |
-| GET    | `/companies`              | List all companies                                                 |
-| GET    | `/company/{cin}`          | Get full company details                                           |
-| POST   | `/analyze/{cin}`          | Run full AI compliance analysis                                    |
-| GET    | `/search-regulation?q={}` | Semantic regulation search                                         |
-| GET    | `/news`                   | Live + curated regulatory news (merged, sorted by date)           |
-| POST   | `/news/analyze`           | AI-powered structured analysis of a regulatory news item          |
-| GET    | `/tax/{cin}`              | Tax Expert full analysis for a company (Advance tax, TDS, MAT, savings) |
-| GET    | `/ca-verify/{cin}`        | CA filing verification against regulation changes                 |
-| GET    | `/docs`                   | Interactive API documentation                                      |
+| Method | Endpoint                        | Description                                                        |
+| ------ | ------------------------------- | ------------------------------------------------------------------ |
+| GET    | `/companies`                    | List all companies                                                 |
+| GET    | `/company/{cin}`                | Get full company details                                           |
+| POST   | `/analyze/{cin}`                | Run full AI compliance analysis                                    |
+| GET    | `/search-regulation?q={}`       | Semantic regulation search                                         |
+| GET    | `/news`                         | Live + curated regulatory news (merged, sorted by date)           |
+| POST   | `/news/analyze`                 | AI-powered structured analysis of a regulatory news item          |
+| GET    | `/tax/{cin}`                    | Tax Expert full analysis (Advance tax, TDS, MAT, savings)         |
+| GET    | `/ca-verify/{cin}`              | CA filing verification against regulation changes                 |
+| GET    | `/executive/{cin}`              | Executive dashboard view (exposure, signatures, impact)           |
+| POST   | `/alerts/{cin}`                 | Create Executive → CA alert                                       |
+| GET    | `/alerts/{cin}`                 | Get all alerts for a company                                       |
+| PUT    | `/alerts/{id}/acknowledge`      | CA acknowledges + replies to an alert                             |
+| PUT    | `/alerts/{id}/read`             | Mark alert as read                                                 |
+| POST   | `/filing-requests/{cin}`        | Create a filing request                                            |
+| GET    | `/filing-requests/{cin}`        | Get all filing requests for a company                              |
+| PUT    | `/filing-requests/{id}/file`    | Mark a filing as FILED (triggers risk recalculation)              |
+| PUT    | `/filing-requests/{id}/progress`| Mark a filing as IN_PROGRESS                                       |
+| GET    | `/activity-log`                 | Last 20 automation engine activity entries                        |
+| POST   | `/demo/trigger-regulation`      | Inject a regulation + run impact detector immediately             |
+| GET    | `/score-update/{cin}`           | Latest risk score delta after a filing was marked FILED           |
+| POST   | `/chat`                         | Gemini 2.5 Flash compliance chat with company context             |
+| GET    | `/docs`                         | Interactive API documentation (Swagger UI)                        |
 
 ### `POST /news/analyze` — Request body
 
@@ -118,7 +137,23 @@ Returns a structured JSON with `rule_name`, `what_changed`, `who_it_hits`, `what
 
 Lookup order:
 1. Exact title / rule_name match in curated dataset → instant pre-baked response
-2. Scrape page + Gemini 2.0 Flash → AI-generated response
+2. Scrape page + Gemini 2.5 Flash → AI-generated response
+
+---
+
+## ⚡ Automation Engine
+
+Running as background jobs (60-second intervals) from server startup:
+
+| Job | Trigger | Action |
+|-----|---------|--------|
+| `job_deadline_scanner` | Every 60s | Scans all 12 companies; creates alerts + filing requests for overdue GST/MCA/Tax |
+| `job_regulation_detector` | Every 60s | Fetches live news → maps sector → affected companies → creates alerts |
+| `job_filing_escalator` | Every 60s | Escalates PENDING requests: HIGH alert at 24h, EMERGENCY at 48h |
+
+All events are written to `activity_log` (in-memory, max 50 entries) and exposed via `GET /activity-log`.
+
+The `ActivityFeed.jsx` component polls this endpoint every 5 seconds and renders live entries with slide-in animations, severity-coloured left borders, and a per-second countdown to the next scan.
 
 ---
 
