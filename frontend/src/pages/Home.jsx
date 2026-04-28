@@ -68,7 +68,7 @@ export default function Home() {
           </motion.div>
           <motion.h1 variants={item}
             className="text-5xl md:text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-indigo-500 mb-6 tracking-tight leading-tight pb-2">
-            Your Company's AI Compliance Doctor
+            Your Company's AI Compliance 
           </motion.h1>
           <motion.p variants={item} className="text-xl text-gray-400 max-w-2xl mx-auto mb-12">
             Powered by 5 specialist AI agents monitoring MCA, SEBI, GST, and Income Tax in real time.

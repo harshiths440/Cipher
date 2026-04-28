@@ -18,9 +18,13 @@ Endpoints:
   GET  /filing-requests/{cin}                 -> get all filing requests for a company
   PUT  /filing-requests/{request_id}/file     -> mark a filing as FILED
   PUT  /filing-requests/{request_id}/progress -> mark a filing as IN_PROGRESS
+  GET  /activity-log                          -> last 20 automation activity entries
+  POST /demo/trigger-regulation               -> inject a custom regulation and run detector
 """
 
 import json
+from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -31,6 +35,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
+from scheduler import start_scheduler, activity_log
+
 from chromadb_client import search_regulation
 from gemini_client import analyze_regulatory_news
 from langgraph_orchestrator import run_analysis
@@ -39,7 +45,8 @@ from tax_expert import compute_tax_analysis
 from ca_verifier import verify_ca_filings
 from alerts import create_alert, get_alerts, acknowledge_alert, mark_read, alerts_store
 from filing_tracker import (
-    create_filing_request, get_filing_requests, mark_filed, mark_in_progress
+    create_filing_request, get_filing_requests, mark_filed, mark_in_progress,
+    score_cache,
 )
 
 # ---------------------------------------------------------------------------
@@ -60,6 +67,18 @@ def _load_companies() -> list[dict]:
 # App
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Lifespan — start the automation scheduler on boot
+# ---------------------------------------------------------------------------
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Start background scheduler before the server begins accepting requests."""
+    start_scheduler()
+    yield
+    # (scheduler stops automatically when the process exits)
+
+
 app = FastAPI(
     title="ComplianceX API",
     description=(
@@ -67,6 +86,7 @@ app = FastAPI(
         "Powered by LangGraph, ChromaDB, and Claude AI."
     ),
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Allow all origins so the frontend can call this locally
@@ -108,6 +128,15 @@ _EXEC_CREDENTIALS: dict[str, dict] = {
     "U40100WB2014PTC556677": {"password": "voltex2024",     "name": "Voltex Energy Solutions Pvt Ltd"},
     "U63090KL2012PTC889900": {"password": "seaways2024",    "name": "Seaways Maritime Pvt Ltd"},
     "U80301HR2023PTC001122": {"password": "edubridge2024",  "name": "EduBridge EdTech Pvt Ltd"},
+    # New companies (added in expansion)
+    "U65191DL2018PTC445123": {"password": "bankedge2024",   "name": "BankEdge Microfinance Pvt Ltd"},
+    "U24230TG2019PTC556234": {"password": "pharmaroots2024","name": "Pharma Roots India Pvt Ltd"},
+    "U27100MH2011PTC667345": {"password": "steelforge2024", "name": "SteelForge Heavy Industries Pvt Ltd"},
+    "U40106GJ2020PTC778456": {"password": "greengrid2024",  "name": "GreenGrid Solar Pvt Ltd"},
+    "U52100KA2017PTC889567": {"password": "freshmart2024",  "name": "FreshMart Grocery Chain Pvt Ltd"},
+    "U62200MH2015PTC990678": {"password": "skybridge2024",  "name": "Skybridge Aviation Services Pvt Ltd"},
+    "U63090TN2010PTC001789": {"password": "coastalship2024","name": "CoastalShip Cargo Pvt Ltd"},
+    "U70100HR2016PTC112890": {"password": "landmark2024",   "name": "LandMark Realty Pvt Ltd"},
 }
 
 
@@ -158,6 +187,116 @@ async def get_company(cin: str):
     if match is None:
         raise HTTPException(status_code=404, detail=f"Company with CIN '{cin}' not found.")
     return match
+
+
+# ---------------------------------------------------------------------------
+# Sector-Tailored Regulations
+# ---------------------------------------------------------------------------
+
+_SECTOR_CATEGORIES: dict[str, list[str]] = {
+    "IT Services":                    ["Tax", "Corporate"],
+    "Education Technology":           ["Tax", "Corporate"],
+    "Financial Services & NBFC":      ["Securities", "Tax", "Corporate"],
+    "Retail & E-Commerce":            ["GST", "Corporate", "Tax"],
+    "Manufacturing":                  ["GST", "Corporate", "Tax"],
+    "Healthcare & MedTech":           ["GST", "Corporate"],
+    "Real Estate & Construction":     ["GST", "Tax", "Corporate"],
+    "Shipping & Maritime":            ["GST", "Corporate"],
+    "Logistics & Supply Chain":       ["GST", "Corporate", "Tax"],
+    "Agribusiness & Food Processing": ["GST", "Corporate"],
+    "Renewable Energy":               ["GST", "Tax", "Corporate"],
+    "Legal & Professional Services":  ["Tax", "Corporate"],
+}
+
+_SECTOR_REASONS: dict[str, dict[str, str]] = {
+    "GST":        {
+        "Manufacturing":                  "Your sector involves goods production — GST on inputs, outputs, and ITC claims apply directly.",
+        "Retail & E-Commerce":            "Retail and e-commerce are high-frequency GST filers; invoice matching and GSTR-1 filings are critical.",
+        "Healthcare & MedTech":           "Medical devices and pharma have complex GST exemptions and rate slabs you must track.",
+        "Real Estate & Construction":     "Construction materials and works contracts are heavily governed by GST notifications.",
+        "Shipping & Maritime":            "Port services, freight, and bunkering attract GST; import/export documentation is key.",
+        "Logistics & Supply Chain":       "Freight and warehousing are GST-liable; e-waybills and GTA compliance apply.",
+        "Agribusiness & Food Processing": "Food processing GST rates change frequently; input credits on packaging affect margins.",
+        "Renewable Energy":               "Solar panels and equipment attract GST; project-level ITC claims require careful tracking.",
+        "default":                        "GST compliance applies to your sector for goods and services transactions.",
+    },
+    "Securities": {
+        "Financial Services & NBFC":      "As an NBFC, SEBI and RBI regulations on securities, lending, and disclosures apply directly to you.",
+        "default":                        "SEBI regulations may affect your investment disclosures and listed-entity obligations.",
+    },
+    "Tax":        {
+        "IT Services":                    "IT companies are subject to TDS on contractor payments, advance tax on large profits, and MSME vendor rules.",
+        "Education Technology":           "EdTech companies must track TDS on service payments, advance tax, and GST on digital services.",
+        "Financial Services & NBFC":      "NBFCs face complex tax treatment on provisioning, interest income, and capital gains.",
+        "Manufacturing":                  "Manufacturing firms must manage TDS on labour contracts, Section 43B(h) MSME payments, and advance tax.",
+        "Real Estate & Construction":     "Real estate developers face TDS on land acquisition (Section 194IA) and advance tax on project profits.",
+        "Logistics & Supply Chain":       "Logistics companies must track TDS on freight payments and advance tax on quarterly profits.",
+        "Renewable Energy":               "Solar project companies have accelerated depreciation benefits and specific advance tax rules.",
+        "Legal & Professional Services":  "Professional services firms face TDS deduction (Section 194J) from every client payment.",
+        "default":                        "Income tax obligations including TDS, advance tax, and filing deadlines apply to your company.",
+    },
+    "Corporate":  {
+        "default":                        "MCA corporate governance rules — board meetings, director KYC, annual filings — apply to all companies.",
+    },
+}
+
+
+def _score_regulation(item: dict, sector: str) -> dict:
+    """Score a news item by relevance to the given sector."""
+    relevant_cats = _SECTOR_CATEGORIES.get(sector, ["Corporate"])
+    cat = item.get("category", "General")
+
+    if cat not in ["GST", "Tax", "Corporate", "Securities"]:
+        score = 20
+        label = "LOW"
+    elif len(relevant_cats) >= 1 and cat == relevant_cats[0]:
+        score = 90
+        label = "HIGH"
+    elif cat in relevant_cats:
+        score = 60
+        label = "MEDIUM"
+    else:
+        score = 30
+        label = "LOW"
+
+    # Reason sentence
+    cat_reasons = _SECTOR_REASONS.get(cat, {})
+    reason = cat_reasons.get(sector) or cat_reasons.get("default", f"{cat} regulations apply to your company.")
+
+    return {
+        **item,
+        "impact": score,
+        "impact_label": label,
+        "reason": reason,
+    }
+
+
+@app.get("/regulations/{cin}", tags=["Analysis"])
+def get_tailored_regulations(cin: str):
+    """
+    Return all 40 news items scored and ranked by relevance to this company's sector.
+    Items are sorted: HIGH → MEDIUM → LOW, then by date descending within each tier.
+    """
+    from news_fetcher import FALLBACK_NEWS
+
+    companies = _load_companies()
+    company = next((c for c in companies if c["cin"] == cin), None)
+    if company is None:
+        raise HTTPException(status_code=404, detail=f"Company '{cin}' not found.")
+
+    sector = company.get("sector", "")
+    scored = [_score_regulation(item, sector) for item in FALLBACK_NEWS]
+    scored.sort(key=lambda x: -x["impact"])
+    return {
+        "cin": cin,
+        "company_name": company["name"],
+        "sector": sector,
+        "total": len(scored),
+        "high_count": sum(1 for r in scored if r["impact_label"] == "HIGH"),
+        "regulations": scored,
+    }
+
+
 
 
 @app.post("/analyze/{cin}", tags=["Analysis"])
@@ -567,6 +706,10 @@ class AlertCreateRequest(BaseModel):
     message:             str
     urgency:             str = "LOW"   # LOW | HIGH | EMERGENCY
 
+class ChatRequest(BaseModel):
+    system: str
+    messages: list[dict]
+
 
 class AcknowledgeRequest(BaseModel):
     ca_response: str
@@ -604,6 +747,35 @@ def put_mark_read(alert_id: str):
         return mark_read(alert_id)
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+@app.post("/chat", tags=["AI"])
+async def chat_endpoint(req: ChatRequest):
+    """Proxy chat requests to Gemini with system instructions."""
+    from google import genai
+    from google.genai import types
+    import os
+    
+    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+    
+    formatted_messages = []
+    for msg in req.messages:
+        role = "user" if msg["role"] == "user" else "model"
+        formatted_messages.append(
+            types.Content(role=role, parts=[types.Part.from_text(text=msg["content"])])
+        )
+        
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=formatted_messages,
+            config=types.GenerateContentConfig(
+                system_instruction=req.system,
+                max_output_tokens=1000,
+            )
+        )
+        return {"reply": response.text.strip()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -656,6 +828,130 @@ def put_mark_in_progress(request_id: str):
         return mark_in_progress(request_id)
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Score Update
+# ---------------------------------------------------------------------------
+
+@app.get("/score-update/{cin}", tags=["Scheduler"])
+def get_score_update(cin: str):
+    """
+    Return the most recent risk score recalculation for a company.
+
+    The score is recomputed automatically whenever a filing request is marked
+    as FILED via PUT /filing-requests/{request_id}/file.
+
+    Response (when data exists):
+      previous_score  — score before the last filing
+      new_score       — score after recomputation
+      delta           — previous_score − new_score  (positive = improvement)
+      recalculated_at — ISO timestamp of the recalculation
+      triggered_by    — "{form} filed by {ca_name}"
+
+    Returns null for all fields when no recalculation has occurred yet.
+    """
+    entry = score_cache.get(cin)
+    if not entry:
+        return {
+            "previous_score":  None,
+            "new_score":       None,
+            "delta":           None,
+            "recalculated_at": None,
+            "triggered_by":    None,
+        }
+    return {
+        "previous_score":  entry["previous_score"],
+        "new_score":       entry["new_score"],
+        "delta":           entry["previous_score"] - entry["new_score"],
+        "recalculated_at": entry["recalculated_at"],
+        "triggered_by":    entry["triggered_by"],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Activity Log
+# ---------------------------------------------------------------------------
+
+@app.get("/activity-log", tags=["Scheduler"])
+def get_activity_log():
+    """
+    Return the last 20 automation activity entries from the in-memory log.
+
+    Response:
+      entries      — list of activity entries (newest first)
+      total        — total entries currently in the log (max 50)
+      last_updated — ISO timestamp of the most recent entry, or None
+    """
+    entries = activity_log[:20]
+    return {
+        "entries":      entries,
+        "total":        len(activity_log),
+        "last_updated": entries[0]["full_timestamp"] if entries else None,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Demo — Trigger Regulation
+# ---------------------------------------------------------------------------
+
+class TriggerRegulationRequest(BaseModel):
+    title:    str
+    category: str   # GST | Tax | Corporate | Securities | General
+    severity: str = "HIGH"   # LOW | MEDIUM | HIGH
+
+
+@app.post("/demo/trigger-regulation", tags=["Scheduler"])
+async def demo_trigger_regulation(body: TriggerRegulationRequest):
+    """
+    Inject a custom regulation into the live news dataset and immediately
+    run the regulation-impact detector job against all companies.
+
+    Body: { title, category, severity }
+    Returns:
+      regulation_added  — the injected news item
+      companies_affected — number of alerts created in this run
+      alerts_created    — same value (for convenience)
+    """
+    from news_fetcher import FALLBACK_NEWS
+    from scheduler import job_regulation_detector
+
+    today = datetime.now().strftime("%d %b %Y")
+    new_item = {
+        "title":              body.title,
+        "source":             "Demo Trigger",
+        "source_icon":        "🧪",
+        "date":               today,
+        "previous_rule_date": today,
+        "link":               "#",
+        "category":           body.category,
+        "rule_name":          body.title,
+        "what_changed":       f"Demo-triggered regulation: {body.title}",
+        "who_it_hits":        "All companies in the relevant sector",
+        "what_to_do":         ["Review the new regulation", "Assess impact", "File required forms"],
+        "deadline":           "As notified",
+        "penalty":            "As per regulation",
+        "severity":           body.severity.upper(),
+        "compared_to_before": "N/A — demo-injected regulation",
+    }
+
+    # Inject into the shared FALLBACK_NEWS list so it is picked up by the detector
+    FALLBACK_NEWS.insert(0, new_item)
+
+    # Count alerts before running the job
+    from alerts import alerts_store as _alerts
+    count_before = len(_alerts)
+
+    # Run the detector immediately (it is an async job)
+    await job_regulation_detector()
+
+    alerts_created = len(_alerts) - count_before
+
+    return {
+        "regulation_added":   new_item,
+        "companies_affected": alerts_created,
+        "alerts_created":     alerts_created,
+    }
 
 
 # ---------------------------------------------------------------------------

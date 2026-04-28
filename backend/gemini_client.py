@@ -44,7 +44,7 @@ def generate_remediation(
 
     try:
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
                 system_instruction=SYSTEM_PROMPT,
@@ -109,7 +109,7 @@ def analyze_regulatory_news(
 
     try:
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
                 max_output_tokens=800,
@@ -122,3 +122,42 @@ def analyze_regulatory_news(
         return json.loads(raw)
     except Exception:
         return fallback
+
+# ---------------------------------------------------------------------------
+# Executive Chat AI
+# ---------------------------------------------------------------------------
+
+def chat_with_ai(company_data: dict, messages: list[dict]) -> str:
+    system_prompt = (
+        f"You are a compliance advisor for Indian companies. "
+        f"You are currently advising the executive of {company_data['company']['name']}, "
+        f"a {company_data['company']['sector']} company based in {company_data['company']['city']}.\n\n"
+        f"Current compliance status:\n"
+        f"- Total ₹ Exposure: {company_data['total_exposure']}\n"
+        f"- Active violations: {json.dumps(company_data['signature_required'])}\n"
+        f"- CA Audit status: {company_data['ca_summary']['at_risk_count']} filings at risk\n"
+        f"- Relevant regulations: {json.dumps([r.get('rule_name', r.get('title')) for r in company_data.get('regulatory_impact', [])])}\n\n"
+        f"Answer in plain English. Be direct and specific to this company's situation. "
+        f"Keep answers under 150 words. Use ₹ amounts and section references where relevant. "
+        f"Never say 'I don't know' — always give your best assessment based on the data provided."
+    )
+
+    formatted_messages = []
+    for msg in messages:
+        role = "user" if msg["role"] == "user" else "model"
+        formatted_messages.append(
+            types.Content(role=role, parts=[types.Part.from_text(text=msg["content"])])
+        )
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=formatted_messages,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                max_output_tokens=1000,
+            )
+        )
+        return response.text.strip()
+    except Exception as e:
+        raise Exception(f"AI generation failed: {str(e)}")

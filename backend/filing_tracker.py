@@ -3,19 +3,41 @@ filing_tracker.py — ComplianceX Filing Request Tracker
 
 In-memory store for Executive → CA filing requests.
 Generates realistic acknowledgement numbers per portal type on filing.
+After a filing is marked FILED the company's risk score is recomputed
+using the RuleEngine + RiskScorer and cached in score_cache.
 No database required — resets on server restart (demo-safe).
 """
 
 from __future__ import annotations
+import json
 import random
 import string
 from datetime import datetime, timezone
+from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # In-memory store
 # ---------------------------------------------------------------------------
 
 filing_requests_store: list[dict] = []
+
+# ---------------------------------------------------------------------------
+# Risk score cache  keyed by CIN
+# ---------------------------------------------------------------------------
+
+score_cache: dict[str, dict] = {}   # CIN → { previous_score, new_score, ... }
+
+_DATA_PATH = Path(__file__).parent / "data" / "companies.json"
+
+
+def get_company_by_cin(cin: str) -> dict | None:
+    """Load companies.json and return the matching company, or None."""
+    try:
+        with open(_DATA_PATH, "r", encoding="utf-8") as f:
+            companies = json.load(f)
+        return next((c for c in companies if c["cin"] == cin), None)
+    except Exception:
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -93,6 +115,7 @@ def mark_filed(request_id: str, ca_name: str, form_name: str, portal: str) -> di
     Mark a filing request as FILED.
     Generates a realistic ACK number based on the form type.
     `portal` param can override the auto-detected portal name.
+    After marking FILED, recomputes the company risk score and caches the delta.
     """
     for req in filing_requests_store:
         if req["id"] == request_id:
@@ -102,7 +125,43 @@ def mark_filed(request_id: str, ca_name: str, form_name: str, portal: str) -> di
             req["filed_by"]   = ca_name
             req["ack_number"] = ack_number
             req["ack_portal"] = portal or auto_portal
+
+            # ── Non-blocking risk recalculation ──────────────────────────────
+            try:
+                from rule_engine import RuleEngine
+                from risk_scorer import RiskScorer
+                from scheduler import log_activity
+
+                company = get_company_by_cin(req["cin"])
+                if company:
+                    violations = RuleEngine().evaluate(company)
+                    result     = RiskScorer().score(company, violations)
+                    new_score  = result["score"]
+
+                    # Use cached previous score if available, otherwise estimate
+                    prev_entry   = score_cache.get(req["cin"])
+                    prev_score   = prev_entry["new_score"] if prev_entry else min(new_score + 10, 100)
+
+                    score_cache[req["cin"]] = {
+                        "previous_score":  prev_score,
+                        "new_score":       new_score,
+                        "recalculated_at": datetime.now().isoformat(),
+                        "triggered_by":    f"{form_name or req['form_name']} filed by {ca_name}",
+                    }
+
+                    delta = prev_score - new_score
+                    arrow = f"↓{delta} pts" if delta >= 0 else f"↑{abs(delta)} pts"
+                    log_activity(
+                        "📉",
+                        f"Risk score recalculated: {prev_score} → {new_score} ({arrow})",
+                        company=company["name"],
+                        severity="INFO",
+                    )
+            except Exception:
+                pass   # never let risk recalc break the filing response
+
             return req
+
     raise KeyError(f"Filing request '{request_id}' not found.")
 
 

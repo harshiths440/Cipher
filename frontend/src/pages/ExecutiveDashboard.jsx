@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, AlertTriangle, IndianRupee, Clock, Send, Plus, X, Activity } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, IndianRupee, Clock, Send, Plus, X, Activity, FileSignature } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ActivityFeed from '../components/ActivityFeed';
 
 const API = 'http://localhost:8000';
 
@@ -336,6 +337,15 @@ const ExecutiveDashboard = () => {
               </table>
             </div>
           </div>
+        </div>
+
+        {/* ROW 6: Activity Feed */}
+        <div className="mb-16">
+          <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <span className="w-1.5 h-4 bg-indigo-500 rounded" />
+            System Activity
+          </h2>
+          <ActivityFeed cin={cin} companyName={company.name} />
         </div>
 
       </div>

@@ -427,5 +427,294 @@
     },
     "active_obligations": 2,
     "sector_risk_index": 0.15
+  },
+  {
+    "cin": "U65191DL2018PTC445123",
+    "name": "BankEdge Microfinance Pvt Ltd",
+    "type": "Private Limited",
+    "sector": "Financial Services & NBFC",
+    "incorporation_date": "2018-06-20",
+    "city": "New Delhi",
+    "directors": [
+      { "name": "Rohit Kapoor", "din": "09001234", "disqualified": false },
+      { "name": "Sneha Agarwal", "din": "09002345", "disqualified": false }
+    ],
+    "compliance_history": {
+      "annual_returns_filed": true,
+      "last_annual_return_date": "2024-09-30",
+      "overdue_filings": 1,
+      "filing_delay_days_avg": 22,
+      "violations_last_12m": 2,
+      "penalty_paid_inr": 45000
+    },
+    "financials": {
+      "annual_turnover_inr": 85000000,
+      "net_profit_inr": 9500000,
+      "paid_up_capital_inr": 20000000,
+      "total_employees": 180,
+      "msme_vendor_payments_inr": 3200000,
+      "tds_deducted_inr": 1800000,
+      "advance_tax_paid_inr": 2200000
+    },
+    "gst": {
+      "gstin": "07AAGCB1234C1Z5",
+      "gst_returns_filed": true,
+      "gst_pending_months": 1
+    },
+    "active_obligations": 5,
+    "sector_risk_index": 0.72
+  },
+  {
+    "cin": "U24230TG2019PTC556234",
+    "name": "Pharma Roots India Pvt Ltd",
+    "type": "Private Limited",
+    "sector": "Healthcare & MedTech",
+    "incorporation_date": "2019-02-10",
+    "city": "Hyderabad",
+    "directors": [
+      { "name": "Dr. Kavita Reddy", "din": "09112233", "disqualified": false },
+      { "name": "Suresh Babu", "din": "09223344", "disqualified": false }
+    ],
+    "compliance_history": {
+      "annual_returns_filed": true,
+      "last_annual_return_date": "2024-10-15",
+      "overdue_filings": 0,
+      "filing_delay_days_avg": 8,
+      "violations_last_12m": 1,
+      "penalty_paid_inr": 12000
+    },
+    "financials": {
+      "annual_turnover_inr": 55000000,
+      "net_profit_inr": 7200000,
+      "paid_up_capital_inr": 10000000,
+      "total_employees": 95,
+      "msme_vendor_payments_inr": 1800000,
+      "tds_deducted_inr": 980000,
+      "advance_tax_paid_inr": 1600000
+    },
+    "gst": {
+      "gstin": "36AAGCP5678D1Z3",
+      "gst_returns_filed": true,
+      "gst_pending_months": 0
+    },
+    "active_obligations": 3,
+    "sector_risk_index": 0.38
+  },
+  {
+    "cin": "U27100MH2011PTC667345",
+    "name": "SteelForge Heavy Industries Pvt Ltd",
+    "type": "Private Limited",
+    "sector": "Manufacturing",
+    "incorporation_date": "2011-11-05",
+    "city": "Pune",
+    "directors": [
+      { "name": "Vikram Desai", "din": "06334455", "disqualified": false },
+      { "name": "Anjali Patil", "din": "06445566", "disqualified": false }
+    ],
+    "compliance_history": {
+      "annual_returns_filed": false,
+      "last_annual_return_date": "2023-09-30",
+      "overdue_filings": 3,
+      "filing_delay_days_avg": 65,
+      "violations_last_12m": 4,
+      "penalty_paid_inr": 120000
+    },
+    "financials": {
+      "annual_turnover_inr": 320000000,
+      "net_profit_inr": 28000000,
+      "paid_up_capital_inr": 50000000,
+      "total_employees": 650,
+      "msme_vendor_payments_inr": 18000000,
+      "tds_deducted_inr": 8500000,
+      "advance_tax_paid_inr": 6200000
+    },
+    "gst": {
+      "gstin": "27AAGCS9012E1Z1",
+      "gst_returns_filed": false,
+      "gst_pending_months": 3
+    },
+    "active_obligations": 7,
+    "sector_risk_index": 0.85
+  },
+  {
+    "cin": "U40106GJ2020PTC778456",
+    "name": "GreenGrid Solar Pvt Ltd",
+    "type": "Private Limited",
+    "sector": "Renewable Energy",
+    "incorporation_date": "2020-04-22",
+    "city": "Ahmedabad",
+    "directors": [
+      { "name": "Nitin Shah", "din": "09556677", "disqualified": false },
+      { "name": "Meera Joshi", "din": "09667788", "disqualified": false }
+    ],
+    "compliance_history": {
+      "annual_returns_filed": true,
+      "last_annual_return_date": "2024-10-01",
+      "overdue_filings": 0,
+      "filing_delay_days_avg": 5,
+      "violations_last_12m": 0,
+      "penalty_paid_inr": 0
+    },
+    "financials": {
+      "annual_turnover_inr": 78000000,
+      "net_profit_inr": 11000000,
+      "paid_up_capital_inr": 25000000,
+      "total_employees": 130,
+      "msme_vendor_payments_inr": 5500000,
+      "tds_deducted_inr": 2200000,
+      "advance_tax_paid_inr": 2800000
+    },
+    "gst": {
+      "gstin": "24AAGCG3456F1Z9",
+      "gst_returns_filed": true,
+      "gst_pending_months": 0
+    },
+    "active_obligations": 2,
+    "sector_risk_index": 0.22
+  },
+  {
+    "cin": "U52100KA2017PTC889567",
+    "name": "FreshMart Grocery Chain Pvt Ltd",
+    "type": "Private Limited",
+    "sector": "Retail & E-Commerce",
+    "incorporation_date": "2017-07-14",
+    "city": "Bengaluru",
+    "directors": [
+      { "name": "Anil Kumar", "din": "07778899", "disqualified": false },
+      { "name": "Divya Shetty", "din": "07889900", "disqualified": false }
+    ],
+    "compliance_history": {
+      "annual_returns_filed": true,
+      "last_annual_return_date": "2024-09-15",
+      "overdue_filings": 1,
+      "filing_delay_days_avg": 18,
+      "violations_last_12m": 2,
+      "penalty_paid_inr": 35000
+    },
+    "financials": {
+      "annual_turnover_inr": 190000000,
+      "net_profit_inr": 14000000,
+      "paid_up_capital_inr": 30000000,
+      "total_employees": 420,
+      "msme_vendor_payments_inr": 22000000,
+      "tds_deducted_inr": 5800000,
+      "advance_tax_paid_inr": 3500000
+    },
+    "gst": {
+      "gstin": "29AAGCF7890G1Z7",
+      "gst_returns_filed": true,
+      "gst_pending_months": 1
+    },
+    "active_obligations": 4,
+    "sector_risk_index": 0.55
+  },
+  {
+    "cin": "U62200MH2015PTC990678",
+    "name": "Skybridge Aviation Services Pvt Ltd",
+    "type": "Private Limited",
+    "sector": "Logistics & Supply Chain",
+    "incorporation_date": "2015-03-30",
+    "city": "Mumbai",
+    "directors": [
+      { "name": "Capt. Rajan Pillai", "din": "07000112", "disqualified": false },
+      { "name": "Sonal Mehta", "din": "07001223", "disqualified": false }
+    ],
+    "compliance_history": {
+      "annual_returns_filed": true,
+      "last_annual_return_date": "2024-10-10",
+      "overdue_filings": 0,
+      "filing_delay_days_avg": 10,
+      "violations_last_12m": 1,
+      "penalty_paid_inr": 18000
+    },
+    "financials": {
+      "annual_turnover_inr": 145000000,
+      "net_profit_inr": 16500000,
+      "paid_up_capital_inr": 35000000,
+      "total_employees": 310,
+      "msme_vendor_payments_inr": 8200000,
+      "tds_deducted_inr": 4100000,
+      "advance_tax_paid_inr": 4500000
+    },
+    "gst": {
+      "gstin": "27AAGCS1234H1Z4",
+      "gst_returns_filed": true,
+      "gst_pending_months": 0
+    },
+    "active_obligations": 3,
+    "sector_risk_index": 0.42
+  },
+  {
+    "cin": "U63090TN2010PTC001789",
+    "name": "CoastalShip Cargo Pvt Ltd",
+    "type": "Private Limited",
+    "sector": "Shipping & Maritime",
+    "incorporation_date": "2010-08-18",
+    "city": "Chennai",
+    "directors": [
+      { "name": "James Fernandes", "din": "05112334", "disqualified": false },
+      { "name": "Anitha Krishnan", "din": "05223445", "disqualified": false }
+    ],
+    "compliance_history": {
+      "annual_returns_filed": true,
+      "last_annual_return_date": "2024-09-20",
+      "overdue_filings": 2,
+      "filing_delay_days_avg": 40,
+      "violations_last_12m": 3,
+      "penalty_paid_inr": 75000
+    },
+    "financials": {
+      "annual_turnover_inr": 260000000,
+      "net_profit_inr": 22000000,
+      "paid_up_capital_inr": 45000000,
+      "total_employees": 520,
+      "msme_vendor_payments_inr": 11000000,
+      "tds_deducted_inr": 6800000,
+      "advance_tax_paid_inr": 5500000
+    },
+    "gst": {
+      "gstin": "33AAGCC5678I1Z2",
+      "gst_returns_filed": true,
+      "gst_pending_months": 2
+    },
+    "active_obligations": 6,
+    "sector_risk_index": 0.68
+  },
+  {
+    "cin": "U70100HR2016PTC112890",
+    "name": "LandMark Realty Pvt Ltd",
+    "type": "Private Limited",
+    "sector": "Real Estate & Construction",
+    "incorporation_date": "2016-01-12",
+    "city": "Gurugram",
+    "directors": [
+      { "name": "Hardeep Singh", "din": "07334556", "disqualified": false },
+      { "name": "Pooja Malhotra", "din": "07445667", "disqualified": false }
+    ],
+    "compliance_history": {
+      "annual_returns_filed": false,
+      "last_annual_return_date": "2023-10-01",
+      "overdue_filings": 2,
+      "filing_delay_days_avg": 55,
+      "violations_last_12m": 3,
+      "penalty_paid_inr": 95000
+    },
+    "financials": {
+      "annual_turnover_inr": 410000000,
+      "net_profit_inr": 38000000,
+      "paid_up_capital_inr": 80000000,
+      "total_employees": 290,
+      "msme_vendor_payments_inr": 35000000,
+      "tds_deducted_inr": 12000000,
+      "advance_tax_paid_inr": 9500000
+    },
+    "gst": {
+      "gstin": "06AAGCL9012J1Z8",
+      "gst_returns_filed": false,
+      "gst_pending_months": 3
+    },
+    "active_obligations": 6,
+    "sector_risk_index": 0.78
   }
 ]
+

@@ -17,6 +17,14 @@ const COMPANIES = [
   { cin: 'U40100WB2014PTC556677', name: 'Voltex Energy Solutions Pvt Ltd' },
   { cin: 'U63090KL2012PTC889900', name: 'Seaways Maritime Pvt Ltd' },
   { cin: 'U80301HR2023PTC001122', name: 'EduBridge EdTech Pvt Ltd' },
+  { cin: 'U65191DL2018PTC445123', name: 'BankEdge Microfinance Pvt Ltd' },
+  { cin: 'U24230TG2019PTC556234', name: 'Pharma Roots India Pvt Ltd' },
+  { cin: 'U27100MH2011PTC667345', name: 'SteelForge Heavy Industries Pvt Ltd' },
+  { cin: 'U40106GJ2020PTC778456', name: 'GreenGrid Solar Pvt Ltd' },
+  { cin: 'U52100KA2017PTC889567', name: 'FreshMart Grocery Chain Pvt Ltd' },
+  { cin: 'U62200MH2015PTC990678', name: 'Skybridge Aviation Services Pvt Ltd' },
+  { cin: 'U63090TN2010PTC001789', name: 'CoastalShip Cargo Pvt Ltd' },
+  { cin: 'U70100HR2016PTC112890', name: 'LandMark Realty Pvt Ltd' },
 ]
 
 export default function Login() {

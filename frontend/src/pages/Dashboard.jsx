@@ -6,6 +6,8 @@ import ShapFactorBar from '../components/ShapFactorBar';
 import ViolationCard from '../components/ViolationCard';
 import RemediationPanel from '../components/RemediationPanel';
 import LoadingSpinner from '../components/LoadingSpinner';
+import ActivityFeed from '../components/ActivityFeed';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const API = 'http://localhost:8000';
 
@@ -367,65 +369,210 @@ const OverviewTab = ({ data, cin }) => {
           ))}
         </div>
       </div>
+      {/* Activity Feed */}
+      <div className="pt-4 border-t border-white/5">
+        <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <span className="w-1.5 h-4 bg-indigo-500 rounded" />
+          System Activity
+        </h2>
+        <ActivityFeed cin={cin} companyName={data.company_name} />
+      </div>
+    </div>
+  );
+};
+
+// ─── Regulations Affecting You Tab ──────────────────────────────────────────
+
+const IMPACT_STYLES = {
+  HIGH:   { badge: 'bg-red-500/20 text-red-400 border-red-500/30',    icon: '🔴', bar: 'bg-red-500' },
+  MEDIUM: { badge: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', icon: '🟡', bar: 'bg-yellow-400' },
+  LOW:    { badge: 'bg-gray-500/20 text-gray-400 border-gray-500/30',  icon: '⚪', bar: 'bg-gray-500' },
+};
+
+const RegulationsTab = ({ cin, sector }) => {
+  const [regs, setRegs] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState({});
+
+  useEffect(() => {
+    fetch(`${API}/regulations/${cin}`)
+      .then(r => r.json())
+      .then(d => { setRegs(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [cin]);
+
+  if (loading) return <div className="flex items-center justify-center py-16 text-gray-500">Loading regulations...</div>;
+  if (!regs)   return <div className="text-red-400 p-4">Failed to load regulations.</div>;
+
+  const high = regs.regulations.filter(r => r.impact_label === 'HIGH');
+  const med  = regs.regulations.filter(r => r.impact_label === 'MEDIUM');
+  const low  = regs.regulations.filter(r => r.impact_label === 'LOW');
+
+  const RegCard = ({ reg }) => {
+    const s = IMPACT_STYLES[reg.impact_label] || IMPACT_STYLES.LOW;
+    const isOpen = expanded[reg.title];
+    return (
+      <div className="bg-[#111827] border border-white/8 rounded-xl overflow-hidden flex flex-col">
+        <div className="p-5 flex-grow">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className={`text-xs font-bold px-2 py-0.5 rounded border uppercase tracking-wide ${s.badge}`}>
+                {s.icon} {reg.impact_label} IMPACT
+              </span>
+              <span className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-xs font-semibold px-2 py-0.5 rounded uppercase tracking-wide">
+                {reg.category}
+              </span>
+            </div>
+            <span className="text-xs text-gray-500">{reg.date}</span>
+          </div>
+          <h3 className="font-bold text-white text-base mb-2">{reg.title}</h3>
+          <p className="text-sm text-indigo-300/80 italic mb-3">↳ {reg.reason}</p>
+          <div className="flex items-center justify-between mt-auto pt-2">
+            <span className="text-xs text-red-400 font-medium">Penalty: {reg.penalty || 'Varies'}</span>
+            {reg.what_to_do?.length > 0 && (
+              <button
+                onClick={() => setExpanded(p => ({ ...p, [reg.title]: !isOpen }))}
+                className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 transition-all"
+              >
+                {isOpen ? 'Hide steps ▲' : 'View steps ▼'}
+              </button>
+            )}
+          </div>
+        </div>
+        <AnimatePresence>
+          {isOpen && reg.what_to_do?.length > 0 && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="overflow-hidden"
+            >
+              <div className="border-t border-white/5 bg-black/20 px-5 py-4">
+                <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-3">Action Steps</p>
+                <ol className="space-y-2">
+                  {reg.what_to_do.map((step, i) => (
+                    <li key={i} className="flex gap-3 text-sm text-gray-300">
+                      <span className="text-indigo-500 font-bold shrink-0">{i + 1}.</span>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  };
+
+  const Section = ({ title, items, color }) => items.length === 0 ? null : (
+    <div>
+      <h3 className={`text-sm font-bold uppercase tracking-widest mb-4 ${color}`}>{title} ({items.length})</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 items-start">
+        {items.map((reg, i) => <RegCard key={i} reg={reg} />)}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-2">
+      {/* Summary banner */}
+      <div className="bg-[#111827] border border-white/8 rounded-xl p-5 flex items-center justify-between mb-6">
+        <div>
+          <p className="text-white font-bold text-lg">
+            ⚠️ {regs.high_count} regulation{regs.high_count !== 1 ? 's' : ''} directly affect {regs.company_name}
+          </p>
+          <p className="text-gray-400 text-sm mt-1">Sector: {regs.sector} · {regs.total} total rules scored by relevance</p>
+        </div>
+        <div className="flex gap-6 text-center">
+          <div><p className="text-2xl font-black text-red-400">{high.length}</p><p className="text-xs text-gray-500 uppercase tracking-wide">High</p></div>
+          <div><p className="text-2xl font-black text-yellow-400">{med.length}</p><p className="text-xs text-gray-500 uppercase tracking-wide">Medium</p></div>
+          <div><p className="text-2xl font-black text-gray-500">{low.length}</p><p className="text-xs text-gray-500 uppercase tracking-wide">Low</p></div>
+        </div>
+      </div>
+
+      <Section title="🔴 High Impact" items={high} color="text-red-400" />
+      <Section title="🟡 Medium Impact" items={med} color="text-yellow-400" />
+      <Section title="⚪ Low Impact" items={low} color="text-gray-500" />
     </div>
   );
 };
 
 // ─── Alert Inbox Tab ─────────────────────────────────────────────────────────
 
-const AlertInboxTab = ({ alerts, refreshAlerts }) => {
+const AlertInboxTab = ({ alerts, setAlerts, refreshAlerts }) => {
   const [replyText, setReplyText] = useState({});
   const [replyModal, setReplyModal] = useState({ open: false, alertId: null });
 
   const handleAck = async () => {
-    const responseText = replyText[replyModal.alertId] || 'Acknowledged and processing.';
+    const responseText = replyText[replyModal.alertId] || '';
+    const alertId = replyModal.alertId;
+    
+    // Optimistic update
+    setAlerts(alerts.map(a => a.id === alertId ? { ...a, status: 'ACKNOWLEDGED', ca_response: responseText, acknowledged_at: new Date().toISOString() } : a));
+    setReplyModal({ open: false, alertId: null });
+    alert("✅ Acknowledged");
+
     try {
-      const res = await fetch(`${API}/alerts/${replyModal.alertId}/acknowledge`, {
+      await fetch(`${API}/alerts/${alertId}/acknowledge`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ca_response: responseText })
       });
-      if (res.ok) {
-        setReplyModal({ open: false, alertId: null });
-        refreshAlerts();
-      }
+      refreshAlerts();
     } catch (e) {
       console.error(e);
+      refreshAlerts(); // Revert on error
     }
   };
 
   const handleRead = async (id) => {
+    // Optimistic update
+    setAlerts(alerts.map(a => a.id === id ? { ...a, status: 'READ' } : a));
     try {
       await fetch(`${API}/alerts/${id}/read`, { method: 'PUT' });
       refreshAlerts();
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      console.error(e); 
+      refreshAlerts(); // Revert on error
+    }
   };
 
-  if (!alerts.length) return <div className="p-8 text-center text-gray-400 border border-white/5 rounded-xl bg-white/2">No alerts from Executive.</div>;
+  if (!alerts.length) return (
+    <div className="p-16 text-center text-green-400 border border-green-500/20 rounded-xl bg-green-500/5 flex flex-col items-center gap-4">
+      <span className="text-4xl">✅</span>
+      <p className="font-semibold">No alerts from executives — you're all clear</p>
+    </div>
+  );
 
   return (
     <div className="space-y-4 pb-16">
       {alerts.map(a => {
         const isEmergency = a.urgency === 'EMERGENCY';
         const isHigh = a.urgency === 'HIGH';
-        const urgencyClass = isEmergency 
-          ? 'bg-red-500 text-white animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]' 
-          : isHigh ? 'bg-orange-500 text-white' : 'bg-yellow-500 text-black';
+        
+        const badgeClass = isEmergency ? 'bg-red-500 text-white' : isHigh ? 'bg-orange-500 text-white' : 'bg-yellow-500 text-black';
+        const borderClass = isEmergency ? 'border-red-500 animate-[pulse_2s_ease-in-out_infinite]' : isHigh ? 'border-orange-500' : 'border-yellow-500/50';
+        const bgClass = a.status === 'UNREAD' ? 'bg-white/10 border-l-4 border-l-indigo-500' : 'bg-[var(--color-brand-card)]';
         
         return (
-          <div key={a.id} className={`p-5 rounded-xl border ${a.status === 'UNREAD' ? 'border-red-500/50 bg-red-500/5' : 'border-white/10 bg-[var(--color-brand-card)]'}`}>
+          <div key={a.id} className={`p-5 rounded-xl border ${borderClass} ${bgClass} transition-colors`}>
             <div className="flex justify-between items-start mb-4">
               <div className="flex items-center gap-3">
-                <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${urgencyClass}`}>
-                  {a.urgency}
+                <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${badgeClass}`}>
+                  {isEmergency ? '🔴 ' : ''}{a.urgency}
                 </span>
-                <span className="text-sm text-gray-400">{new Date(a.sent_at).toLocaleString()}</span>
               </div>
-              <StatusBadge s={a.status} />
+              <div className="flex flex-col items-end gap-2">
+                <span className="text-sm text-gray-400">{new Date(a.sent_at).toLocaleString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}</span>
+                <StatusBadge s={a.status} />
+              </div>
             </div>
             
             <p className="text-sm text-gray-400 mb-1">Re: <span className="font-bold text-white">{a.regulation_title}</span></p>
-            <p className="text-gray-300 text-sm mb-6 bg-black/30 p-4 rounded-xl border-l-4 border-indigo-500">{a.message}</p>
+            <p className="text-gray-300 text-sm mb-4 bg-black/30 p-4 rounded-xl border-l-4 border-indigo-500">"{a.message}"</p>
+            <p className="text-xs text-gray-500 mb-6 font-semibold uppercase tracking-wider">Sent by: Executive</p>
             
             {a.status !== 'ACKNOWLEDGED' ? (
               <div className="flex gap-3 mt-4 border-t border-white/10 pt-4">
@@ -435,7 +582,7 @@ const AlertInboxTab = ({ alerts, refreshAlerts }) => {
                   </button>
                 )}
                 <button onClick={() => setReplyModal({ open: true, alertId: a.id })} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors">
-                  Acknowledge + Reply
+                  Acknowledge + Reply →
                 </button>
               </div>
             ) : (
@@ -453,16 +600,21 @@ const AlertInboxTab = ({ alerts, refreshAlerts }) => {
       {replyModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-[#111827] border border-white/10 rounded-2xl w-full max-w-md p-6">
-            <h3 className="text-xl font-bold mb-4">Reply to Executive</h3>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">✅ Acknowledge Alert</h3>
+              <button onClick={() => setReplyModal({ open: false, alertId: null })} className="text-gray-500 hover:text-white">✕</button>
+            </div>
+            <p className="text-sm text-gray-400 mb-4">Re: <span className="text-white font-semibold">{alerts.find(a => a.id === replyModal.alertId)?.regulation_title}</span></p>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Your response:</label>
             <textarea 
               className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-indigo-500 min-h-[120px] mb-4"
-              placeholder="E.g. I have reviewed this and will file it by EOD."
+              placeholder='e.g. "Filing in progress, will complete by Friday"'
               value={replyText[replyModal.alertId] || ''}
               onChange={e => setReplyText({...replyText, [replyModal.alertId]: e.target.value})}
             />
             <div className="flex gap-3 justify-end">
               <button onClick={() => setReplyModal({ open: false, alertId: null })} className="px-4 py-2 text-gray-400 hover:text-white">Cancel</button>
-              <button onClick={handleAck} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium">Send Reply</button>
+              <button onClick={handleAck} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium">Send Acknowledgement →</button>
             </div>
           </div>
         </div>
@@ -653,11 +805,12 @@ const Dashboard = () => {
   const unreadAlerts = alerts.filter(a => a.status === 'UNREAD').length;
   
   const TABS = [
-    { id: 'overview',  label: 'Overview' },
-    { id: 'tax',       label: 'Tax Analysis' },
-    { id: 'ca_audit',  label: 'CA Audit' },
-    { id: 'alerts',    label: `🔴 Alerts ${unreadAlerts > 0 ? `(${unreadAlerts})` : ''}` },
-    { id: 'filings',   label: 'Filing Requests' },
+    { id: 'overview',     label: 'Overview' },
+    { id: 'tax',          label: 'Tax Analysis' },
+    { id: 'ca_audit',     label: 'CA Audit' },
+    { id: 'regulations',  label: '📋 Regulations' },
+    { id: 'alerts',       label: unreadAlerts > 0 ? `🔴 Alerts (${unreadAlerts})` : 'Alerts' },
+    { id: 'filings',      label: 'Filing Requests' },
   ];
 
   return (
@@ -709,11 +862,12 @@ const Dashboard = () => {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'overview' && <OverviewTab data={data} cin={cin} />}
-      {activeTab === 'tax'      && <TaxTab cin={cin} />}
-      {activeTab === 'ca_audit' && <CAAuditTab cin={cin} />}
-      {activeTab === 'alerts'   && <AlertInboxTab alerts={alerts} refreshAlerts={fetchDynamicData} />}
-      {activeTab === 'filings'  && <FilingRequestsTab requests={requests} refreshRequests={fetchDynamicData} />}
+      {activeTab === 'overview'    && <OverviewTab data={data} cin={cin} />}
+      {activeTab === 'tax'         && <TaxTab cin={cin} />}
+      {activeTab === 'ca_audit'    && <CAAuditTab cin={cin} />}
+      {activeTab === 'regulations' && <RegulationsTab cin={cin} sector={data.sector} />}
+      {activeTab === 'alerts'      && <AlertInboxTab alerts={alerts} setAlerts={setAlerts} refreshAlerts={fetchDynamicData} />}
+      {activeTab === 'filings'     && <FilingRequestsTab requests={requests} refreshRequests={fetchDynamicData} />}
     </div>
   );
 };
