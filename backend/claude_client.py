@@ -1,5 +1,5 @@
 """
-ComplianceX Claude Client
+ComplianceX Claude Client , changed repo name
 Generates actionable remediation steps using Anthropic Claude API.
 """
 
