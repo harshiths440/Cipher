@@ -18,59 +18,20 @@
 - [x] Semantic regulation search using sentence-transformers/all-MiniLM-L6-v2
 - [x] Gemini 2.0 Flash integration for AI remediation step generation
 - [x] Pre-loaded dataset of 12 realistic Indian private limited companies
-- [x] Full REST API with 6 endpoints (+ `/docs`)
-- [x] CORS enabled for frontend connection
+- [x] Full REST API with CORS enabled for both portals
 - [x] Environment-based API key management
 - [x] `GET /news` — live regulatory news merged with 40-item curated synthetic dataset
 - [x] `POST /news/analyze` — scrapes article + calls Gemini 2.0 Flash for structured breakdown
-  - Lookup order: curated dataset match (instant) → scrape + Gemini fallback
-  - Matches by `title` OR `rule_name` for flexibility
-  - Returns: `rule_name`, `what_changed`, `who_it_hits`, `what_to_do[]`, `deadline`, `penalty`, `severity`, `compared_to_before`
 - [x] 40-item curated regulatory news dataset (10 per category: GST, Corporate, Tax, Securities)
-- [x] News merge logic — FALLBACK_NEWS always included, live scraped items deduped and appended
-- [x] `GET /tax/{cin}` — Doctor 3 (Tax Expert) computing advance tax, TDS (192/194J/194I/194C), MAT check, and sector-based savings
-- [x] `GET /ca-verify/{cin}` — CA Audit Trail cross-referencing synthesised CA filings against the 40-item regulatory news dataset to detect OUTDATED and AT_RISK filings
-
-### Frontend (React + Vite + Tailwind)
-- [x] Home page with company dropdown populated from live API
-- [x] Full compliance analysis triggered on button click
-- [x] Risk Dashboard with animated semicircular gauge
-- [x] SHAP-style factor bars showing score contributors
-- [x] Active Violations panel with severity badges and ₹ exposure amounts
-- [x] AI Remediation Plan panel with numbered steps
-- [x] Relevant Regulations section pulled from ChromaDB
-- [x] Compliance Calendar with deadline tracking
-- [x] Filter tabs — All / Overdue / Due Soon / Upcoming / Filed
-- [x] Take Action modal with step-by-step filing instructions per obligation
-- [x] Mark as In Progress functionality with toast notification
-- [x] Dark theme throughout with indigo accent design system
-- [x] Animated gradient background with grid pattern and indigo glow
-- [x] Gradient text hero heading + styled dropdown with indigo focus states
-- [x] Glowing Analyze button with hover effect and custom loading state
-- [x] Doctor cards with dark backgrounds, left-border accents, and stagger animations
-- [x] Stats bar with 3 primary compliance metrics
-
-### Dashboard UI (Tabs)
-- [x] **Overview Tab** — Risk gauge, SHAP factors, active violations, AI remediation, and relevant regulations
-- [x] **Tax Analysis Tab** — Advance tax timeline, TDS obligations table, MAT check card, and savings opportunities
-- [x] **CA Audit Tab** — Filing verification table with AT_RISK / OUTDATED status badges and expandable row panels for finding & recommendation details
-
-### Regulatory News UI (Doctor 1)
-- [x] Category filter pills — All / GST / Corporate / Tax / Securities / General
-- [x] **Stale category fallback** — if no recent news for a tab, shows last-ever item for that category:
-  - Muted card (60% opacity, dashed border)
-  - ⚠️ amber banner: "No recent [Category] updates — last update was [date]"
-- [x] Empty state tombstone (📭) for categories with zero items ever
-- [x] **News Detail Modal** — clicking a card opens full-screen overlay instead of navigating:
-  - Loading state: spinner + animated "Analyzing regulatory update..." dots
-  - Calls `POST /news/analyze` on mount
-  - Renders: Rule Name (large), Severity badge (RED/AMBER/GREEN), What Changed
-  - **VS BEFORE diff** — side-by-side red/green two-tone comparison (only when amendment detected)
-  - Who It Hits block, numbered action steps, Deadline + Penalty info cards
-  - "Read full circular →" opens original link in new tab
-  - Close via X button, Escape key, or click-outside
-- [x] **Analysis cache** — `useRef(Map)` keyed by title; re-opening same card is instant
-- [x] Body scroll lock while modal is open
+- [x] `GET /tax/{cin}` — Tax Expert computing advance tax, TDS, MAT check, and sector-based savings
+- [x] `GET /ca-verify/{cin}` — CA Audit Trail cross-referencing filings against regulation changes
+- [x] `GET /executive/{cin}` — Executive dashboard view (exposure, signatures, regulatory impact)
+- [x] `POST /alerts/{cin}` / `GET /alerts/{cin}` — Executive → CA alert messaging (in-memory store)
+- [x] `PUT /alerts/{id}/acknowledge` — CA replies to executive alert
+- [x] `POST /filing-requests/{cin}` / `GET /filing-requests/{cin}` — Filing lifecycle tracker
+- [x] `PUT /filing-requests/{id}/file` — CA marks a filing as FILED with ACK number + portal
+- [x] `PUT /filing-requests/{id}/progress` — CA marks a filing as IN_PROGRESS
+- [x] **`POST /auth/login`** — Executive Portal login (CIN + password → session, 401 on fail)
 
 ### AI Pipeline (LangGraph Orchestration)
 - [x] Node 1: `load_company` — loads from JSON dataset by CIN
@@ -82,32 +43,72 @@
 
 ---
 
-## 🚧 In Progress
+### CA Portal — `frontend/` (port 5173)
+- [x] Home page with company dropdown (all 12 companies, CA can select any)
+- [x] "⚖️ CA Portal" badge and link to Executive Portal at localhost:5174
+- [x] Full compliance analysis triggered on button click
+- [x] Risk Dashboard with animated semicircular gauge + SHAP-style factor bars
+- [x] Active Violations panel with severity badges and ₹ exposure amounts
+- [x] AI Remediation Plan panel with numbered steps
+- [x] Relevant Regulations section pulled from ChromaDB
+- [x] Compliance Calendar with deadline tracking and filter tabs
+- [x] Take Action modal with step-by-step filing instructions per obligation
+- [x] Dark theme with indigo accent design system
+- [x] **Tax Analysis Tab** — Advance tax timeline, TDS table, MAT check, savings opportunities
+- [x] **CA Audit Tab** — Filing verification with AT_RISK / OUTDATED badges
+- [x] **🔴 Alerts Tab** — Polls `GET /alerts/{cin}` every 5s; shows executive alerts with urgency badges (LOW/HIGH/EMERGENCY pulsing); "Acknowledge + Reply" modal
+- [x] **📋 Filing Requests Tab** — Polls `GET /filing-requests/{cin}` every 5s; CA can mark IN_PROGRESS or FILED (with ACK number + portal selection)
 
-- [ ] Demo script finalization
-- [ ] General category news items (currently shows stale fallback — by design)
+### Regulatory News UI
+- [x] Category filter pills — All / GST / Corporate / Tax / Securities / General
+- [x] Stale category fallback with amber warning banner
+- [x] News Detail Modal with Gemini analysis, VS BEFORE diff, action steps
+- [x] Analysis cache — re-opening same card is instant (no repeat API call)
 
 ---
 
-## 📋 Planned (Post-Hackathon Roadmap)
+### Executive Portal — `executive/` (port 5174) ⭐ NEW
+> A completely separate Vite + React application — isolated from the CA portal, like an admin panel vs. the main site.
 
-### Phase 3 — Live Data Integration
-- [ ] MCA21 V3 REST API integration (replace static dataset)
-- [ ] GSTN Sandbox API for live GST data
-- [ ] SEBI SCORES RSS feed monitoring
-- [ ] Doctor 1 (News Reader) — live regulatory change detection with diff-against-previous
+- [x] **Login Page** — Company dropdown + password field → `POST /auth/login`
+  - Session stored in `sessionStorage` on success
+  - Red error message on invalid credentials
+  - Hint showing password format (`companyname2024`)
+  - "Switch to CA Portal" link back to localhost:5173
+- [x] **Route Guard** — `PrivateRoute` component redirects unauthenticated users to `/login`
+- [x] **Executive Dashboard** — `/dashboard` route, locked to the logged-in company only
+  - 3 KPI cards: Total ₹ Exposure · Items Needing Signature · Last CA Filing
+  - "What Needs Your Signature" panel — urgency-tagged cards per board action required
+  - **"Alert CA"** button → opens modal to compose + send alert with LOW/HIGH/EMERGENCY urgency
+  - **CA Filing Tracker** table — polls `GET /filing-requests/{cin}` every 5s to reflect CA updates in real time
+  - **"Request Filing"** button → sends `POST /filing-requests/{cin}` to ask CA to file a form
+  - Regulatory Impact Feed — sector-filtered news cards with detail modal
+  - **Sign Out** button clears sessionStorage and returns to login
 
-### Phase 4 — Full Agent Activation
-- [ ] Redis Pub/Sub messaging between agents
-- [ ] Multi-tenant support — CA firm managing multiple client companies
-- [ ] Email/SMS deadline alerts
+### Credential System
+- [x] 12 company passwords hardcoded in backend `_EXEC_CREDENTIALS` dict
+- [x] Password scheme: `lowercaseslug2024` (e.g. `technova2024`, `pinnacle2024`)
+- [x] Each executive can only access their own company — no company selector shown
 
-### Phase 5 — Product
-- [ ] User authentication and company onboarding
-- [ ] Subscription billing via Razorpay
-- [ ] PDF compliance report export
-- [ ] Historical risk score trend charts
-- [ ] Director DIN verification against MCA disqualification list
+---
+
+## 🔄 Real-Time Communication Flow
+
+```
+Executive Portal (5174)          CA Portal (5173)
+        │                               │
+        │  POST /alerts/{cin}           │
+        │ ─────────────────────────────►│  CA sees alert in 5s (polling)
+        │                               │  CA replies via PUT /alerts/{id}/acknowledge
+        │                               │
+        │  POST /filing-requests/{cin}  │
+        │ ─────────────────────────────►│  CA sees request in Filing Requests tab
+        │                               │  CA marks as FILED with ACK number
+        │◄──────────────────────────────│
+        │  GET /filing-requests/{cin}   │
+        │  (auto-polls every 5s)        │
+        │  Status updates to FILED ✓    │
+```
 
 ---
 
@@ -120,18 +121,30 @@
 | AI Model | Gemini 2.0 Flash | Free API, fast, sufficient quality |
 | Data Layer | JSON flat file | Zero setup time, demo-safe, no DB crashes |
 | Scoring | Rule-based weighted | Deterministic, explainable, no model training needed |
-| News analysis | Curated dataset + Gemini fallback | Instant response for known items; Gemini for unknowns |
-| News merge | Always-include FALLBACK_NEWS | Synthetic data always visible regardless of live scraper success |
-| Redis/Pub-Sub | Deferred to Phase 3 | Demo stability over architectural completeness |
+| News analysis | Curated dataset + Gemini fallback | Instant response for known items |
+| Alert storage | In-memory Python list | Hackathon-safe; no DB setup needed |
+| Auth | sessionStorage + hardcoded credentials | Demo-appropriate; no JWT overhead |
+| Portal split | Two separate Vite apps | Clean separation like e-commerce + admin panel |
+| Real-time | Polling (5s interval) | No WebSocket complexity; reliable for demo |
 
 ---
 
 ## 📊 Demo Companies
 
-| Company | CIN | Risk Score | Bucket |
-|---------|-----|------------|--------|
-| Pinnacle Capital Advisors | U65910MH2013PTC445566 | 100 | CRITICAL |
-| [Add more as tested] | | | |
+| Company | CIN | Password | Risk Score |
+|---------|-----|----------|------------|
+| Pinnacle Capital Advisors | U65910MH2013PTC445566 | `pinnacle2024` | 100 — CRITICAL |
+| Technova Solutions | U72900KA2018PTC123456 | `technova2024` | High |
+| Redstone Retail | U51909MH2015PTC987654 | `redstone2024` | — |
+| Greenfield Manufacturing | U26100DL2020PTC456789 | `greenfield2024` | — |
+| Clearpath Legal | U74140TN2017PTC654321 | `clearpath2024` | — |
+| Swiftline Logistics | U45201GJ2019PTC321098 | `swiftline2024` | — |
+| Arogya Health Tech | U85110RJ2021PTC112233 | `arogya2024` | — |
+| Haritha Agro Foods | U01100AP2022PTC778899 | `haritha2024` | — |
+| Infracore Builders | U74999PB2016PTC334455 | `infracore2024` | — |
+| Voltex Energy | U40100WB2014PTC556677 | `voltex2024` | — |
+| Seaways Maritime | U63090KL2012PTC889900 | `seaways2024` | — |
+| EduBridge EdTech | U80301HR2023PTC001122 | `edubridge2024` | — |
 
 ---
 
@@ -145,13 +158,38 @@
 | Securities | 10    | Nov 2025 – Apr 2026 |
 | **Total**  | **40** | |
 
-All 40 items have pre-baked `rule_name`, `what_changed`, `who_it_hits`, `what_to_do[]`, `deadline`, `penalty`, `severity`, and `compared_to_before` fields, enabling instant modal rendering without any Gemini call.
+---
+
+## 🚧 In Progress
+
+- [ ] Demo script finalization
+
+---
+
+## 📋 Planned (Post-Hackathon Roadmap)
+
+### Phase 3 — Live Data Integration
+- [ ] MCA21 V3 REST API integration (replace static dataset)
+- [ ] GSTN Sandbox API for live GST data
+- [ ] SEBI SCORES RSS feed monitoring
+
+### Phase 4 — Full Agent Activation
+- [ ] WebSocket / SSE to replace polling
+- [ ] Redis Pub/Sub messaging between agents
+- [ ] Email/SMS deadline alerts
+
+### Phase 5 — Product
+- [ ] JWT-based authentication replacing sessionStorage
+- [ ] Subscription billing via Razorpay
+- [ ] PDF compliance report export
+- [ ] Historical risk score trend charts
+- [ ] Persistent database (SQLite/Postgres) replacing in-memory alert store
 
 ---
 
 ## 🐛 Known Issues
 
+- Alert and filing data is in-memory — clears on backend restart
 - Calendar status does not persist across page refreshes (session only)
-- Take Action modal "Mark as In Progress" updates local state only
-- SEBI / Income Tax scrapers are occasionally blocked by the source site's bot detection; the curated dataset covers the gap
-- General category has no curated items (intentional — shows stale fallback UI demo)
+- General category has no curated news items (intentional — shows stale fallback UI demo)
+- SEBI / Income Tax scrapers occasionally blocked by bot detection; curated dataset covers the gap
