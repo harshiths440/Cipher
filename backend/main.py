@@ -41,7 +41,7 @@ from chromadb_client import search_regulation
 from gemini_client import analyze_regulatory_news
 from langgraph_orchestrator import run_analysis
 from news_fetcher import get_regulatory_news, get_cache_info, FALLBACK_NEWS
-from tax_expert import compute_tax_analysis
+from tax_expert import compute_tax_analysis, compute_what_if, apply_saving_opportunity
 from ca_verifier import verify_ca_filings
 from alerts import create_alert, get_alerts, acknowledge_alert, mark_read, alerts_store
 from filing_tracker import (
@@ -588,11 +588,11 @@ async def get_tax_analysis(cin: str):
     Run the Tax Expert (Doctor 3) analysis for a company.
 
     Computes:
-    - Advance tax installments with PAID/MISSED/UPCOMING status
-    - TDS obligations across Salary, Professional Fees, Rent, Contractor
+    - Advance tax installments with live countdown and PAID/MISSED/DUE_SOON status
+    - TDS obligations cross-referenced against filing_history
     - MAT applicability check (Section 115JB)
     - Sector-specific savings opportunities (80IC, 10AA, 35AD)
-    - Risk flags and effective tax rate
+    - Risk flags, effective tax rate, and what-if scenarios
     """
     companies = _load_companies()
     company = next((c for c in companies if c["cin"] == cin), None)
@@ -600,11 +600,92 @@ async def get_tax_analysis(cin: str):
         raise HTTPException(status_code=404, detail=f"Company with CIN '{cin}' not found.")
 
     try:
-        result = compute_tax_analysis(company)
+        tax_data = compute_tax_analysis(company)
+        what_if  = compute_what_if(company, tax_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Tax analysis failed: {str(e)}")
 
+    return {**tax_data, "what_if": what_if}
+
+
+class ApplySavingRequest(BaseModel):
+    scenario_id:    str
+    scenario_title: str
+    form:           str
+    saving:         int
+    company_name:   str
+
+
+@app.post("/tax/{cin}/apply-saving", tags=["Tax"])
+def post_apply_saving(cin: str, body: ApplySavingRequest):
+    """
+    Executive flags a what-if tax saving scenario for the CA to action.
+
+    Creates a filing request, sends an alert to the CA, and logs the activity.
+    Returns the filing request ID and confirmation message.
+    """
+    companies = _load_companies()
+    if not any(c["cin"] == cin for c in companies):
+        raise HTTPException(status_code=404, detail=f"Company with CIN '{cin}' not found.")
+
+    try:
+        result = apply_saving_opportunity(
+            cin=cin,
+            company_name=body.company_name,
+            scenario_id=body.scenario_id,
+            scenario_title=body.scenario_title,
+            form=body.form,
+            saving=body.saving,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to apply saving opportunity: {str(e)}")
+
     return result
+
+
+@app.get("/tax/{cin}/countdown", tags=["Tax"])
+async def get_tax_countdown(cin: str):
+    """
+    Returns live advance tax installment countdown data only.
+    Designed to be polled every 60 seconds by the frontend to keep
+    countdowns live without reloading the full tax analysis.
+
+    Response includes:
+    - installments: all 4 installments with live days_remaining and status
+    - next_due: the soonest upcoming installment
+    - total_missed: count of missed installments
+    - total_interest_accrued: total interest from missed installments
+    - as_of: today's date (ISO)
+    """
+    from datetime import date as _date
+    companies = _load_companies()
+    company = next((c for c in companies if c["cin"] == cin), None)
+    if company is None:
+        raise HTTPException(status_code=404, detail=f"Company with CIN '{cin}' not found.")
+
+    try:
+        tax_data = compute_tax_analysis(company)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Tax analysis failed: {str(e)}")
+
+    installments = tax_data["advance_tax"]["installments"]
+    upcoming     = [
+        i for i in installments
+        if i["status"] in ("UPCOMING", "UPCOMING_SOON", "DUE_SOON")
+    ]
+    next_due = upcoming[0] if upcoming else None
+
+    missed     = [i for i in installments if i["status"] == "MISSED"]
+    total_missed = len(missed)
+    total_interest_accrued = tax_data["advance_tax"]["interest_liability"]
+
+    return {
+        "installments":          installments,
+        "next_due":              next_due,
+        "total_missed":          total_missed,
+        "total_interest_accrued": total_interest_accrued,
+        "as_of":                 _date.today().isoformat(),
+    }
 
 
 # ---------------------------------------------------------------------------

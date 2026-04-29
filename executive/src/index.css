@@ -1,24 +1,30 @@
-* { margin: 0; padding: 0; box-sizing: border-box; }
+@import "tailwindcss";
 
-body {
-  font-family: 'Inter', system-ui, sans-serif;
-  background: #0A0F1E;
-  color: #f1f5f9;
-  min-height: 100vh;
+@theme {
+  --color-brand-bg: #0A0F1E;
+  --color-brand-card: #111827;
+  --color-brand-primary: #10B981;
+  --font-inter: 'Inter', sans-serif;
 }
 
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #111827; }
-::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+@layer base {
+  body {
+    @apply bg-[var(--color-brand-bg)] text-gray-100 font-[var(--font-inter)] antialiased selection:bg-brand-primary/30;
+  }
+}
+
+@layer utilities {
+  .border-glass {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  
+  .glow-emerald {
+    box-shadow: 0 0 20px -5px rgba(16, 185, 129, 0.4);
+  }
+}
 
 @keyframes fade-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
-
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(16,185,129,0.3); }
-  50%       { box-shadow: 0 0 40px rgba(16,185,129,0.6); }
-}
-.glow-emerald { animation: pulse-glow 2s ease-in-out infinite; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 1s linear infinite; }

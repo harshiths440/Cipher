@@ -170,10 +170,11 @@ const RiskAnalyserTab = ({ cin }) => {
   );
 };
 
-const TaxTab = ({ cin }) => {
+const TaxTab = ({ cin, companyName }) => {
   const [tax, setTax] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
+  const [savingStatus, setSavingStatus] = useState({});
 
   useEffect(() => {
     fetch(`${API}/tax/${cin}`)
@@ -183,12 +184,68 @@ const TaxTab = ({ cin }) => {
       .finally(() => setLoading(false));
   }, [cin]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetch(`${API}/tax/${cin}/countdown`)
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(data => {
+          setTax(prev => {
+             if (!prev) return prev;
+             return {
+               ...prev,
+               advance_tax: { ...prev.advance_tax, installments: data.installments, interest_liability: data.total_interest_accrued }
+             };
+          });
+        })
+        .catch(console.error);
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [cin]);
+
+  const handleApplySaving = async (scenario) => {
+    setSavingStatus(prev => ({ ...prev, [scenario.id]: 'loading' }));
+    try {
+      const res = await fetch(`${API}/tax/${cin}/apply-saving`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scenario_id: scenario.id,
+          scenario_title: scenario.title,
+          form: scenario.form,
+          saving: scenario.saving,
+          company_name: companyName || 'Company'
+        })
+      });
+      if (res.ok) {
+         setSavingStatus(prev => ({ ...prev, [scenario.id]: 'sent' }));
+         alert(`💰 ₹${scenario.saving.toLocaleString('en-IN')} saving opportunity sent to CA — filing request created`);
+      } else {
+         throw new Error('Failed to send to CA');
+      }
+    } catch (e) {
+       console.error(e);
+       setSavingStatus(prev => ({ ...prev, [scenario.id]: 'error' }));
+    }
+  };
+
   if (loading) return <LoadingSpinner message="Analysing Tax Intelligence…" />;
   if (err)     return <div className="p-6 text-red-400 text-sm">Failed to load tax intelligence.</div>;
   if (!tax)    return null;
 
   const at = tax.advance_tax;
-  const dotColor = { PAID:'bg-emerald-400', MISSED:'bg-rose-500', UPCOMING:'bg-slate-500' };
+  const dotColor = { 
+    PAID: 'bg-emerald-400', 
+    MISSED: 'bg-rose-500 animate-pulse', 
+    DUE_SOON: 'bg-orange-500 animate-pulse',
+    UPCOMING_SOON: 'bg-yellow-400',
+    UPCOMING: 'bg-slate-500' 
+  };
+  
+  // Find the index of the last PAID installment to color the connecting line
+  let lastPaidIndex = -1;
+  at.installments.forEach((inst, i) => {
+    if (inst.status === 'PAID') lastPaidIndex = i;
+  });
 
   return (
     <div className="space-y-10 pb-24 font-['Inclusive_Sans'] max-w-6xl">
@@ -231,19 +288,53 @@ const TaxTab = ({ cin }) => {
 
         {/* Advance Tax Timeline */}
         <div className="bg-[#1C1F2E] border border-white/5 rounded-[32px] p-8">
-          <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-10">Advance Tax Timeline</h3>
+          <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-10 flex items-center gap-2">Advance Tax Timeline <span className="text-[10px] text-green-400 normal-case bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20">Live Countdown</span></h3>
           <div className="relative flex justify-between items-start pt-4">
             <div className="absolute top-[34px] left-0 right-0 h-0.5 bg-white/5 z-0" />
+            <div 
+              className="absolute top-[34px] left-0 h-0.5 bg-emerald-500 z-0 transition-all duration-1000" 
+              style={{ width: lastPaidIndex >= 0 ? `${(lastPaidIndex / (at.installments.length - 1)) * 100}%` : '0%' }} 
+            />
             {at.installments.map((inst, i) => (
               <div key={i} className="relative z-10 flex flex-col items-center gap-4 w-1/4">
-                <div className={`w-10 h-10 rounded-full border-4 border-[#1C1F2E] flex items-center justify-center ${dotColor[inst.status] || 'bg-slate-500'}`}>
-                  {inst.status === 'PAID' ? <Check className="w-4 h-4 text-white" /> : <div className="w-2 h-2 rounded-full bg-white/20" />}
+                <div className={`w-10 h-10 rounded-full border-4 border-[#1C1F2E] flex items-center justify-center transition-colors ${dotColor[inst.status] || 'bg-slate-500'}`}>
+                  {inst.status === 'PAID' ? <Check className="w-4 h-4 text-[#1C1F2E]" /> : <div className="w-2 h-2 rounded-full bg-white/20" />}
                 </div>
-                <div className="text-center">
+                <div className="text-center w-full px-2">
                   <p className="text-xs font-bold text-white mb-1 uppercase tracking-widest">{inst.due}</p>
                   <p className="text-[10px] text-gray-500 font-bold mb-2">{inst.percent}% Liability</p>
                   <p className="text-base font-black text-white mb-2">{fmt(inst.amount)}</p>
-                  <StatusBadge s={inst.status} />
+                  
+                  {inst.status === 'PAID' && (
+                    <>
+                      <span className="text-[10px] font-bold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full uppercase">✓ PAID</span>
+                      <p className="text-[10px] text-gray-400 mt-2">Paid on {inst.payment_date}</p>
+                    </>
+                  )}
+                  {inst.status === 'MISSED' && (
+                    <>
+                      <span className="text-[10px] font-bold bg-rose-500/10 border border-rose-500/20 text-rose-400 px-2 py-0.5 rounded-full uppercase">MISSED</span>
+                      <p className="text-[10px] text-rose-400 mt-2 font-semibold leading-tight">{inst.warning}</p>
+                    </>
+                  )}
+                  {inst.status === 'DUE_SOON' && (
+                    <>
+                      <span className="text-[10px] font-bold bg-orange-500/10 border border-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full uppercase">DUE IN {inst.days_remaining} DAYS</span>
+                      <p className="text-[10px] text-orange-400/80 mt-2 leading-tight">Pay immediately</p>
+                    </>
+                  )}
+                  {inst.status === 'UPCOMING_SOON' && (
+                    <>
+                      <span className="text-[10px] font-bold bg-yellow-400/10 border border-yellow-400/20 text-yellow-400 px-2 py-0.5 rounded-full uppercase">Upcoming</span>
+                      <p className="text-[10px] text-gray-400 mt-2">{inst.days_remaining} days left</p>
+                    </>
+                  )}
+                  {inst.status === 'UPCOMING' && (
+                    <>
+                      <span className="text-[10px] font-bold bg-slate-500/10 border border-slate-500/20 text-slate-400 px-2 py-0.5 rounded-full uppercase">Upcoming</span>
+                      <p className="text-[10px] text-gray-500 mt-2">{inst.days_remaining} days left</p>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
@@ -266,14 +357,39 @@ const TaxTab = ({ cin }) => {
             </thead>
             <tbody className="divide-y divide-white/5">
               {(tax.tds_obligations || []).map((t, i) => (
-                <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
-                  <td className="py-4 pr-4 font-bold text-gray-200 group-hover:text-white">{t.type}</td>
-                  <td className="py-4 pr-4 text-indigo-400 font-bold text-xs">{t.section}</td>
-                  <td className="py-4 pr-4 text-right text-gray-400">{fmt(t.estimated_annual)}</td>
-                  <td className="py-4 pr-4 text-right text-gray-400 font-bold">{(t.tds_rate * 100).toFixed(0)}%</td>
-                  <td className="py-4 pr-4 text-right font-black text-white">{fmt(t.tds_due)}</td>
-                  <td className="py-4"><StatusBadge s={t.status} /></td>
-                </tr>
+                <React.Fragment key={i}>
+                  <tr className="hover:bg-white/[0.02] transition-colors group">
+                    <td className="py-4 pr-4 font-bold text-gray-200 group-hover:text-white">{t.type}</td>
+                    <td className="py-4 pr-4 text-indigo-400 font-bold text-xs">{t.section}</td>
+                    <td className="py-4 pr-4 text-right text-gray-400">{fmt(t.estimated_annual)}</td>
+                    <td className="py-4 pr-4 text-right text-gray-400 font-bold">{(t.tds_rate * 100).toFixed(0)}%</td>
+                    <td className="py-4 pr-4 text-right font-black text-white">{fmt(t.tds_due)}</td>
+                    <td className="py-4 relative group/badge">
+                      {t.status === 'COMPLIANT' && (
+                        <div className="relative inline-block cursor-help">
+                          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded text-xs font-semibold uppercase">COMPLIANT</span>
+                          <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2 py-1 bg-gray-800 text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover/badge:opacity-100 transition-opacity pointer-events-none z-10">Last filed {t.days_since_filing} days ago</div>
+                        </div>
+                      )}
+                      {t.status === 'AT_RISK' && (
+                        <div className="relative inline-block cursor-help">
+                          <span className="bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 px-2 py-0.5 rounded text-xs font-semibold uppercase animate-pulse">AT RISK</span>
+                          <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2 py-1 bg-gray-800 text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover/badge:opacity-100 transition-opacity pointer-events-none z-10">Filing due soon — last filed {t.days_since_filing} days ago</div>
+                        </div>
+                      )}
+                      {t.status === 'DEFAULTING' && (
+                        <span className="bg-rose-500/10 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded text-xs font-semibold uppercase animate-pulse">DEFAULTING</span>
+                      )}
+                    </td>
+                  </tr>
+                  {t.status === 'DEFAULTING' && (
+                    <tr className="bg-rose-500/5">
+                      <td colSpan="6" className="py-2 px-4 text-xs font-semibold text-rose-400">
+                        ⚠️ {t.status_reason} — Interest accrued: {fmt(t.interest_accrued)}
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>
@@ -306,6 +422,68 @@ const TaxTab = ({ cin }) => {
           )}
         </div>
       </div>
+
+      {/* ── What If Simulator ── */}
+      {tax.what_if && tax.what_if.scenarios && tax.what_if.scenarios.length > 0 && (
+        <div className="bg-[#1C1F2E] border border-indigo-500/20 rounded-[32px] p-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-8 opacity-5"><Check className="w-32 h-32 text-indigo-400" /></div>
+          <div className="relative z-10">
+            <h3 className="text-sm font-semibold text-indigo-400 uppercase tracking-wider mb-2">💡 What If Simulator</h3>
+            <div className="flex items-center gap-3 p-4 mb-6 bg-indigo-500/10 border border-indigo-500/30 rounded-xl">
+              <span className="text-2xl">⚡</span>
+              <p className="text-indigo-300 font-bold">{fmt(tax.what_if.total_potential_saving)} in total savings identified across {tax.what_if.total_scenarios} scenarios</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {tax.what_if.scenarios.map((s, i) => {
+                const isSent = savingStatus[s.id] === 'sent';
+                const isLoading = savingStatus[s.id] === 'loading';
+                return (
+                  <div key={i} className="bg-[#0A0F1E] border border-white/5 rounded-2xl p-6 flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-start mb-4">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest ${s.urgency === 'HIGH' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-orange-500/10 text-orange-400 border border-orange-500/20'}`}>
+                          {s.urgency} URGENCY
+                        </span>
+                        {s.days_to_act !== undefined && (
+                          <span className="text-xs text-gray-500 font-semibold">{s.days_to_act > 0 ? `${s.days_to_act} days to act` : 'Act immediately'}</span>
+                        )}
+                      </div>
+                      <h4 className="text-lg font-black text-white mb-4 leading-tight">{s.title}</h4>
+                      
+                      <div className="space-y-3 mb-6">
+                        <div>
+                          <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1">Now</p>
+                          <p className="text-sm text-rose-400/90 font-medium">{s.current}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1">If Done</p>
+                          <p className="text-sm text-emerald-400/90 font-medium">{s.if_done}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-auto">
+                      <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                        <div>
+                          <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1">Potential Saving</p>
+                          <p className="text-lg font-black text-emerald-400">{fmt(s.saving)}</p>
+                        </div>
+                        <button
+                          onClick={() => handleApplySaving(s)}
+                          disabled={isSent || isLoading}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 ${isSent ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : isLoading ? 'bg-indigo-600/50 text-white cursor-wait' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
+                        >
+                          {isSent ? '✓ Sent to CA' : isLoading ? 'Sending...' : 'Apply → Send to CA'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Savings Opportunities ── */}
       <div>
@@ -1626,7 +1804,7 @@ const Dashboard = () => {
           {activeTab === 'overview'     && <OverviewTab data={data} cin={cin} alerts={alerts} setTab={setTab} />}
           {activeTab === 'live_updates' && <LiveUpdatesTab cin={cin} companyName={data.company_name} sector={data.sector} />}
           {activeTab === 'risk'          && <RiskAnalyserTab cin={cin} />}
-          {activeTab === 'tax'          && <TaxTab cin={cin} />}
+          {activeTab === 'tax'          && <TaxTab cin={cin} companyName={data.company_name} />}
           {activeTab === 'ca_audit'     && <CAAuditTab cin={cin} />}
           {activeTab === 'regulations'  && <RegulationsTab cin={cin} sector={data.sector} companyName={data.company_name} />}
           {activeTab === 'alerts'       && <AlertInboxTab alerts={alerts} setAlerts={setAlerts} refreshAlerts={fetchDynamicData} />}

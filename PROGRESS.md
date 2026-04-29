@@ -60,6 +60,13 @@
 
 ---
 
+### Regulatory News UI
+- [x] Category filter pills — All / GST / Corporate / Tax / Securities / General
+- [x] Stale category fallback with amber warning banner
+- [x] News Detail Modal with Gemini analysis, VS BEFORE diff, action steps
+- [x] Analysis cache — re-opening same card is instant (no repeat API call)
+- [x] Graceful handling of empty search results with fallback to unfiltered list
+
 ### CA Portal — `frontend/` (port 5173)
 - [x] Home page with company dropdown (all 12 companies, CA can select any)
 - [x] "⚖️ CA Portal" badge and link to Executive Portal at localhost:5174
@@ -71,17 +78,12 @@
 - [x] Compliance Calendar with deadline tracking and filter tabs
 - [x] Take Action modal with step-by-step filing instructions per obligation
 - [x] Dark theme with indigo accent design system
-- [x] **Tax Analysis Tab** — Advance tax timeline, TDS table, MAT check, savings opportunities
+- [x] **CA Dashboard UI Redesign** — Modern dark-themed, glassmorphic layout, functional sidebar navigation, grid layout for charts, Company Profile card.
+- [x] **Tax Analysis Tab** — Advance tax timeline, TDS table, MAT check, "What-If Simulator", savings opportunities, automated workflow.
 - [x] **CA Audit Tab** — Filing verification with AT_RISK / OUTDATED badges
 - [x] **🔴 Alerts Tab** — Polls `GET /alerts/{cin}` every 5s; shows executive alerts with urgency badges (LOW/HIGH/EMERGENCY pulsing); "Acknowledge + Reply" modal
 - [x] **📋 Filing Requests Tab** — Polls `GET /filing-requests/{cin}` every 5s; CA can mark IN_PROGRESS or FILED (with ACK number + portal selection)
 - [x] **⚡ Activity Feed** — `ActivityFeed.jsx` appended to the Overview tab; polls `/activity-log` every 5s; filters entries to the current company; CRITICAL entries have red left border; countdown timer shows next scan
-
-### Regulatory News UI
-- [x] Category filter pills — All / GST / Corporate / Tax / Securities / General
-- [x] Stale category fallback with amber warning banner
-- [x] News Detail Modal with Gemini analysis, VS BEFORE diff, action steps
-- [x] Analysis cache — re-opening same card is instant (no repeat API call)
 
 ---
 
@@ -94,13 +96,15 @@
   - Hint showing password format (`companyname2024`)
   - "Switch to CA Portal" link back to localhost:5173
 - [x] **Route Guard** — `PrivateRoute` component redirects unauthenticated users to `/login`
+- [x] **ComplianceX Landing Page** — Refined with a stationary grid of 5 interactive agent cards with smooth hover animations.
+- [x] **Header & Navigation** — Standardized high-end header, "Live" pulse status indicator, unified visual synchronization.
 - [x] **Executive Dashboard** — `/dashboard` route, locked to the logged-in company only
   - 3 KPI cards: Total ₹ Exposure · Items Needing Signature · Last CA Filing
   - "What Needs Your Signature" panel — urgency-tagged cards per board action required
   - **"Alert CA"** button → opens modal to compose + send alert with LOW/HIGH/EMERGENCY urgency
   - **CA Filing Tracker** table — polls `GET /filing-requests/{cin}` every 5s to reflect CA updates in real time
   - **"Request Filing"** button → sends `POST /filing-requests/{cin}` to ask CA to file a form
-  - Regulatory Impact Feed — sector-filtered news cards with detail modal
+  - Regulatory Impact Feed — Company-sector filtered news cards with detail modal, fallback handling.
   - **🤖 Ask Compliance AI** — Gemini chat with suggested query pills, scroll-to-bottom, loading state; sends company context as system prompt
   - **⚡ Activity Feed** — Appended below CA Audit; same `ActivityFeed.jsx` component, filtered to this company; live 🟢 status dot
   - **Sign Out** button clears sessionStorage and returns to login
@@ -183,7 +187,7 @@ Executive Portal (5174)          CA Portal (5173)
 ## 🚧 In Progress
 
 - [ ] Demo script finalization
-- [ ] Wire `GET /score-update/{cin}` into Executive Dashboard UI for a visible risk delta card
+- [ ] End-to-end rehearsal and final polish
 
 ---
 

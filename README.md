@@ -63,6 +63,15 @@ Live scrapers (PIB / SEBI / Income Tax / MCA)
 
 ---
 
+## 💻 Portals
+
+The platform is split into two distinct, synchronised React applications:
+
+1. **CA Portal** (Port 5173): A professional workstation for Chartered Accountants. Features a dark-themed, glassmorphic grid layout, risk dashboard, tax analysis tools, action-oriented calendar, and filing request management.
+2. **Executive Portal** (Port 5174): A refined, secure dashboard for company executives. Includes real-time KPI tracking, signature/action requirements, company-scoped regulatory impact feeds, and a dedicated AI Chat assistant powered by Gemini 2.5 Flash for contextual compliance advice.
+
+---
+
 ## 🚀 Setup & Running
 
 ### Prerequisites
@@ -185,6 +194,8 @@ Buckets: `0–25 LOW` | `26–50 MEDIUM` | `51–75 HIGH` | `76–100 CRITICAL`
 | Securities | LODR, RPT, T+0 settlement, insider trading, SCORES 2.0, ESG disclosure, TER cap, IPO, FPI KYC |
 
 Features:
+- **Company-Scoped Live Updates** — Executive dashboard filters news explicitly to the company's mapped sector, providing relevant signal-over-noise.
+- **Graceful Fallbacks** — Handles empty sector-specific updates gracefully by providing the unfiltered latest news.
 - **Always-visible synthetic data** — curated items are always merged with any live-scraped news
 - **Stale category fallback** — if a category tab has no recent live news, shows the last-ever item in that category with a muted dashed card and ⚠️ warning banner
 - **Detail modal** — clicking any card opens a full-screen structured breakdown instead of navigating away
